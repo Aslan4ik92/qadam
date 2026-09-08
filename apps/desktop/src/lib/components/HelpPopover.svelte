@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { t } from '../i18n';
+  import { t, i18n } from '../i18n';
+  import type { UiLanguage } from '../api/types';
   import { search } from '../stores/search.svelte';
   import * as api from '../api/backend';
   import Icon from './Icon.svelte';
@@ -10,17 +11,13 @@
   let tokens = $state<string[] | null>(null);
   let el = $state<HTMLElement | null>(null);
 
-  const syntax = $derived([
-    { ex: '"договор аренды"', key: 'search.help.phrase' as const },
-    { ex: 'договор OR шарт', key: 'search.help.or' as const },
-    { ex: '-черновик', key: 'search.help.exclude' as const },
-    { ex: 'аренд*', key: 'search.help.prefix' as const },
-    { ex: 'договор~', key: 'search.help.fuzzy' as const },
-    { ex: 'name:отчёт', key: 'search.help.name' as const },
-    { ex: 'ext:xlsx', key: 'search.help.ext' as const },
-    { ex: 'path:Договоры', key: 'search.help.path' as const },
-    { ex: 'content:аренда', key: 'search.help.content' as const }
-  ]);
+  const EXAMPLES: Record<UiLanguage, string[]> = {
+    ru: ['"договор аренды"', 'договор OR шарт', '-черновик', 'аренд*', 'договор~', 'name:отчёт', 'ext:xlsx', 'path:Договоры', 'content:аренда'],
+    kk: ['"жалдау шарты"', 'шарт OR договор', '-жоба', 'жалда*', 'шарт~', 'name:есеп', 'ext:xlsx', 'path:Келісімшарттар', 'content:жалдау'],
+    en: ['"lease agreement"', 'lease OR rent', '-draft', 'agree*', 'lease~', 'name:report', 'ext:xlsx', 'path:Contracts', 'content:lease']
+  };
+  const KEYS = ['search.help.phrase', 'search.help.or', 'search.help.exclude', 'search.help.prefix', 'search.help.fuzzy', 'search.help.name', 'search.help.ext', 'search.help.path', 'search.help.content'] as const;
+  const syntax = $derived(EXAMPLES[i18n.lang].map((ex, idx) => ({ ex, key: KEYS[idx] })));
   const shortcuts = [
     { keys: ['Ctrl', 'F'], key: 'keys.focusSearch' as const },
     { keys: ['↑', '↓'], key: 'keys.navigate' as const },

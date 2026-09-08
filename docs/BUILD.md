@@ -39,6 +39,8 @@ target/release/qidir-desktop.exe
 
 Утилита командной строки: `cargo build --release -p qidir-cli` → `target/release/qidir.exe`.
 
+> **Важно.** Собирайте приложение через `npm run tauri build` (или `cargo tauri build`), а не голым `cargo build`: Tauri CLI включает фичу `tauri/custom-protocol`, без которой бинарник считается dev-сборкой и пытается открыть `http://localhost:1420` вместо встроенного интерфейса. Если нужен именно `cargo`, добавьте флаг: `cargo build --release -p qidir-desktop --features tauri/custom-protocol` (фронтенд в `apps/desktop/dist` должен быть собран заранее).
+
 ## Фронтенд без Tauri
 
 `npm run dev` открывает интерфейс в браузере с мок-бэкендом (реалистичные данные на трёх языках, имитация индексации). Параметры URL: `?theme=dark`, `?lang=kk`, `?empty=1` (первый запуск). `npm run screenshots` делает скриншоты основных экранов в headless Chromium.

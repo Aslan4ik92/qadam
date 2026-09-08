@@ -1,9 +1,8 @@
-import { queryTerms, stem } from '../api/mock';
+import { queryTerms, stem } from './query';
 import type { SearchMode } from '../api/types';
 
-export function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+export { escapeHtml } from './query';
+import { escapeHtml } from './query';
 
 /**
  * Wraps query words found in `text` with <mark>. Escapes HTML first, so the output is safe for {@html}.

@@ -79,12 +79,14 @@
         <button class="btn sm" onclick={() => actions.reveal(hit)}><Icon name="explorer" size={14} /> {t('results.reveal')}</button>
         <button class="btn sm" onclick={() => actions.copyPath(hit)}><Icon name="copy" size={14} /> {t('results.copyPath')}</button>
         <span class="grow"></span>
+        <div class="nav-group">
         <div class="nav" class:disabled={!preview || preview.totalMatches === 0}>
           <button class="btn sm icon subtle" onclick={() => search.nextMatch(-1)} title={t('preview.prev')} aria-label={t('preview.prev')} disabled={!preview || preview.totalMatches === 0}><Icon name="chevronLeft" size={14} /></button>
           <span class="count tabular">{matchLabel()}</span>
           <button class="btn sm icon subtle" onclick={() => search.nextMatch(1)} title={t('preview.next')} aria-label={t('preview.next')} disabled={!preview || preview.totalMatches === 0}><Icon name="chevronRight" size={14} /></button>
         </div>
         <button class="btn sm icon subtle" class:on={ui.previewMono} onclick={() => ui.setPreviewMono(!ui.previewMono)} title={t('preview.mono')} aria-label={t('preview.mono')} aria-pressed={ui.previewMono}><Icon name="mono" size={15} /></button>
+        </div>
       </div>
     </header>
 
@@ -130,6 +132,7 @@
   .sep { color: var(--fg-3); }
   .tools { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
   .grow { flex: 1 1 auto; }
+  .nav-group { display: inline-flex; align-items: center; gap: 6px; }
   .nav { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--stroke-control); border-radius: var(--radius-sm); padding: 0 2px; height: 28px; background: var(--surface); }
   .nav.disabled { color: var(--fg-disabled); }
   .count { min-width: 56px; text-align: center; font-size: var(--fs-sm); padding: 0 4px; }

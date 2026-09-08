@@ -3,6 +3,8 @@
  * URL params: ?theme=dark|light|system  ?lang=ru|kk|en  ?empty=1 (no roots)  ?indexing=1 (start a simulated run)
  */
 import type { Backend } from './backend';
+import { DEFAULT_EXCLUDE_GLOBS, escapeHtml, queryTerms, stem } from '../utils/query';
+export { DEFAULT_EXCLUDE_GLOBS, escapeHtml, queryTerms, stem };
 import type {
   AppInfo, DriveInfo, FacetCount, FileCategory, IndexProgress, IndexStats, Preview, PreviewSegment,
   SearchHit, SearchMode, SearchRequest, SearchResponse, Settings, Theme, UiLanguage
@@ -116,11 +118,6 @@ export const SAMPLE_DOCS: MockDoc[] = [
     `Budget 2025\nLine item	Q1	Q2	Q3	Q4\nOffice lease	1,410,000	1,410,000	1,410,000	1,410,000\nSalaries	6,900,000	6,900,000	7,200,000	7,200,000\nMarketing	800,000	900,000	900,000	1,100,000`)
 ];
 
-export const DEFAULT_EXCLUDE_GLOBS = [
-  '**/node_modules/**', '**/.git/**', '**/target/**', '**/dist/**', '**/$RECYCLE.BIN/**',
-  '**/System Volume Information/**', '**/AppData/Local/Temp/**', '**/*.tmp', '**/~$*'
-];
-
 export function defaultSettings(): Settings {
   return {
     version: 1,
@@ -149,10 +146,6 @@ export function defaultSettings(): Settings {
 
 // ---------- helpers ----------
 
-export function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
 function fileName(path: string): string {
   const i = Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/'));
   return i >= 0 ? path.slice(i + 1) : path;
@@ -161,35 +154,6 @@ function fileName(path: string): string {
 function extOf(name: string): string {
   const i = name.lastIndexOf('.');
   return i > 0 ? name.slice(i + 1).toLowerCase() : '';
-}
-
-/** Splits a query into plain terms, dropping operators and field prefixes. */
-export function queryTerms(query: string, mode: SearchMode): string[] {
-  const terms: string[] = [];
-  const re = /"([^"]+)"|(\S+)/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(query)) !== null) {
-    if (m[1] !== undefined) {
-      if (mode === 'exact') terms.push(m[1].toLowerCase());
-      else terms.push(...m[1].toLowerCase().split(/\s+/).filter(Boolean));
-      continue;
-    }
-    let t = m[2];
-    if (/^(or|and|not)$/i.test(t)) continue;
-    if (t.startsWith('-')) continue;
-    const colon = t.indexOf(':');
-    if (colon > 0 && /^(name|ext|path|content)$/i.test(t.slice(0, colon))) t = t.slice(colon + 1);
-    t = t.replace(/[*~]+$/g, '').toLowerCase();
-    if (t) terms.push(t);
-  }
-  return terms;
-}
-
-/** Crude stemming for the mock's "smart" mode: strips a short inflectional tail from longer words. */
-export function stem(term: string): string {
-  if (term.length <= 4) return term;
-  if (term.length <= 6) return term.slice(0, -1);
-  return term.slice(0, -2);
 }
 
 function matchers(terms: string[], mode: SearchMode): RegExp[] {

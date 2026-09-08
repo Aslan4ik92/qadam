@@ -5,7 +5,7 @@
   import { ui } from '../stores/ui.svelte';
   import * as api from '../api/backend';
   import { errorMessage } from '../api/backend';
-  import { DEFAULT_EXCLUDE_GLOBS } from '../api/mock';
+  import { DEFAULT_EXCLUDE_GLOBS } from '../utils/query';
   import { formatNumber, formatSize } from '../utils/format';
   import Icon from './Icon.svelte';
   import Toggle from './Toggle.svelte';
@@ -258,7 +258,7 @@
 
 <style>
   .backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); display: flex; align-items: center; justify-content: center; z-index: 100; animation: fade-in var(--dur) var(--ease); }
-  .dialog { width: 880px; max-width: calc(100vw - 48px); height: 620px; max-height: calc(100vh - 48px); display: flex; background: var(--surface); border: 1px solid var(--stroke); border-radius: var(--radius); box-shadow: var(--shadow-dialog); overflow: hidden; }
+  .dialog { width: 880px; max-width: calc(100vw - 48px); height: min(740px, calc(100vh - 48px)); display: flex; background: var(--surface); border: 1px solid var(--stroke); border-radius: var(--radius); box-shadow: var(--shadow-dialog); overflow: hidden; }
   .tabs { width: 212px; flex: 0 0 auto; padding: 16px 8px; background: var(--surface-2); border-right: 1px solid var(--divider); display: flex; flex-direction: column; gap: 2px; }
   .tabs h2 { font-size: var(--fs-xl); font-weight: 600; padding: 4px 12px 14px; }
   .tab { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 12px; border-radius: var(--radius-sm); text-align: left; color: var(--fg-2); position: relative; font-size: var(--fs-md); }

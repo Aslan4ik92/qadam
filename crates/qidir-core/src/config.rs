@@ -224,12 +224,14 @@ pub struct AppPaths {
 }
 
 impl AppPaths {
-    /// Standard per-user location (`%LOCALAPPDATA%\QIDIR` on Windows).
+    /// Standard per-user location: `%LOCALAPPDATA%\QIDIR` on Windows,
+    /// `$XDG_DATA_HOME/qidir` (or `~/.local/share/qidir`) elsewhere.
     pub fn default_paths() -> Result<Self> {
-        let base = directories::ProjectDirs::from("kz", "qidir", "QIDIR")
+        let base = directories::BaseDirs::new()
             .map(|d| d.data_local_dir().to_path_buf())
             .ok_or_else(|| Error::Config("cannot determine user data directory".into()))?;
-        Ok(Self::in_dir(base))
+        let dir = if cfg!(windows) { base.join("QIDIR") } else { base.join("qidir") };
+        Ok(Self::in_dir(dir))
     }
 
     /// All data under a custom directory (used by the CLI and tests).
