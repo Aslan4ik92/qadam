@@ -325,16 +325,21 @@ impl Engine {
         let settings = self.settings();
         let counters = Counters::default();
         let mut changed = 0usize;
-        let excludes = indexer::build_globset(&settings.exclude_globs)?;
+        let excludes = indexer::Excludes::compile(&settings.exclude_globs)?;
+        let roots: Vec<PathBuf> =
+            settings.roots.iter().filter(|r| r.enabled).map(|r| r.path.clone()).collect();
         for p in paths {
-            if excludes.is_match(crate::fs_util::glob_form(p)) {
+            let Some(root) = roots.iter().find(|r| indexer::is_under(&path_key(p), &path_key(r))) else {
+                continue;
+            };
+            if excludes.is_excluded(p, root) {
                 continue;
             }
             if p.is_dir() {
                 for entry in walkdir::WalkDir::new(p)
                     .follow_links(settings.follow_links)
                     .into_iter()
-                    .filter_entry(|e| !excludes.is_match(crate::fs_util::glob_form(e.path())))
+                    .filter_entry(|e| !excludes.is_excluded(e.path(), root))
                     .flatten()
                 {
                     if entry.file_type().is_file()

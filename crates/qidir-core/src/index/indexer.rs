@@ -139,20 +139,73 @@ pub(crate) struct WorkItem {
     modified: i64,
 }
 
-pub(crate) fn build_globset(patterns: &[String]) -> Result<GlobSet> {
-    let mut b = GlobSetBuilder::new();
-    for p in patterns {
-        let mut pat = p.replace('\\', "/");
-        // Bare folder names ("node_modules") mean "anywhere".
-        if !pat.contains('/') && !pat.contains('*') {
-            pat = format!("**/{pat}/**");
-        } else if !pat.starts_with("**") && !pat.starts_with('/') && !pat.contains(":/") {
-            pat = format!("**/{pat}");
+/// Compiled exclusion patterns.
+///
+/// Patterns are matched against the path **relative to the indexed root**
+/// (forward slashes), so `**/AppData/Local/Temp/**` skips the Temp folder
+/// inside `C:\` but never hides a root the user explicitly chose inside Temp.
+/// Patterns that are absolute (contain a drive letter like `C:/` or start with
+/// `//`) are matched against the full path instead.
+#[derive(Debug, Clone)]
+pub struct Excludes {
+    relative: GlobSet,
+    absolute: GlobSet,
+}
+
+impl Excludes {
+    pub fn compile(patterns: &[String]) -> Result<Self> {
+        let mut rel = GlobSetBuilder::new();
+        let mut abs = GlobSetBuilder::new();
+        for p in patterns {
+            let mut pat = p.trim().replace('\\', "/");
+            if pat.is_empty() {
+                continue;
+            }
+            let is_absolute =
+                pat.starts_with("//") || pat.chars().nth(1) == Some(':') || pat.starts_with('/');
+            if is_absolute {
+                let g =
+                    Glob::new(&pat).map_err(|e| Error::Config(format!("bad exclude pattern `{p}`: {e}")))?;
+                abs.add(g);
+                continue;
+            }
+            // Bare folder names ("node_modules") mean "anywhere".
+            if !pat.contains('/') && !pat.contains('*') {
+                pat = format!("**/{pat}/**");
+            } else if !pat.starts_with("**") {
+                pat = format!("**/{pat}");
+            }
+            // `x/**` matches everything below `x` but not `x` itself; add the
+            // bare form too so whole subtrees are pruned during the crawl.
+            if let Some(dir) = pat.strip_suffix("/**") {
+                let g =
+                    Glob::new(dir).map_err(|e| Error::Config(format!("bad exclude pattern `{p}`: {e}")))?;
+                rel.add(g);
+            }
+            let g = Glob::new(&pat).map_err(|e| Error::Config(format!("bad exclude pattern `{p}`: {e}")))?;
+            rel.add(g);
         }
-        let g = Glob::new(&pat).map_err(|e| Error::Config(format!("bad exclude pattern `{p}`: {e}")))?;
-        b.add(g);
+        Ok(Self {
+            relative: rel.build().map_err(|e| Error::Config(e.to_string()))?,
+            absolute: abs.build().map_err(|e| Error::Config(e.to_string()))?,
+        })
     }
-    b.build().map_err(|e| Error::Config(e.to_string()))
+
+    /// Whether `path` (inside `root`) is excluded. The root itself never is.
+    pub fn is_excluded(&self, path: &Path, root: &Path) -> bool {
+        if !self.absolute.is_empty() && self.absolute.is_match(glob_form(path)) {
+            return true;
+        }
+        if self.relative.is_empty() {
+            return false;
+        }
+        match path.strip_prefix(root) {
+            Ok(rel) if rel.as_os_str().is_empty() => false,
+            Ok(rel) => self.relative.is_match(glob_form(rel)),
+            // Not under the root (should not happen): fall back to the full path.
+            Err(_) => self.relative.is_match(glob_form(path)),
+        }
+    }
 }
 
 impl IndexJob {
@@ -184,7 +237,7 @@ impl IndexJob {
     }
 
     fn run_inner(&self) -> Result<()> {
-        let excludes = build_globset(&self.settings.exclude_globs)?;
+        let excludes = Excludes::compile(&self.settings.exclude_globs)?;
         let opts = ExtractOptions {
             max_file_size: self.settings.max_file_size_bytes,
             extract_pdf: self.settings.extract_pdf,
@@ -269,7 +322,7 @@ impl IndexJob {
                     .into_iter()
                     .filter_entry(|e| {
                         let p = e.path();
-                        if excludes.is_match(glob_form(p)) {
+                        if excludes.is_excluded(p, &root.path) {
                             return false;
                         }
                         if !self.settings.index_hidden {
@@ -496,10 +549,12 @@ pub(crate) fn update_single(
     let Some(root) = root else {
         return Ok(false);
     };
-    let excludes = build_globset(&settings.exclude_globs)?;
+    let excludes = Excludes::compile(&settings.exclude_globs)?;
     match std::fs::metadata(path) {
         Ok(meta) if meta.is_file() => {
-            if excludes.is_match(glob_form(path)) || (!settings.index_hidden && is_hidden(path, &meta)) {
+            if excludes.is_excluded(path, Path::new(&root))
+                || (!settings.index_hidden && is_hidden(path, &meta))
+            {
                 return Ok(false);
             }
             let ext = extension_of(path);
@@ -565,14 +620,31 @@ mod tests {
     }
 
     #[test]
-    fn globset_forms() {
-        let gs =
-            build_globset(&["node_modules".into(), "*.tmp".into(), "**/.git/**".into(), "C:/Temp/**".into()])
-                .unwrap();
-        assert!(gs.is_match("C:/x/node_modules/a.js"));
-        assert!(gs.is_match("C:/x/y/z.tmp"));
-        assert!(gs.is_match("D:/repo/.git/HEAD"));
-        assert!(gs.is_match("C:/Temp/a.txt"));
-        assert!(!gs.is_match("C:/x/y/z.txt"));
+    fn excludes_are_relative_to_root() {
+        let ex = Excludes::compile(&[
+            "node_modules".into(),
+            "*.tmp".into(),
+            "**/.git/**".into(),
+            "**/AppData/Local/Temp/**".into(),
+            "C:/Temp/**".into(),
+        ])
+        .unwrap();
+        let root = Path::new("/data/root");
+        let under = |s: &str| root.join(s);
+        assert!(ex.is_excluded(&under("x/node_modules/a.js"), root));
+        assert!(ex.is_excluded(&under("node_modules"), root));
+        assert!(ex.is_excluded(&under("x/y/z.tmp"), root));
+        assert!(ex.is_excluded(&under(".git/HEAD"), root));
+        assert!(!ex.is_excluded(&under("x/y/z.txt"), root));
+        // The root itself is never excluded, nor are files inside a root that
+        // happens to live inside an excluded location.
+        let temp_root = Path::new("/Users/me/AppData/Local/Temp/.tmpAbc");
+        assert!(!ex.is_excluded(temp_root, temp_root));
+        assert!(!ex.is_excluded(&temp_root.join("a.txt"), temp_root));
+        // ... but the pattern still applies below a broader root.
+        let c = Path::new("/");
+        assert!(ex.is_excluded(Path::new("/Users/me/AppData/Local/Temp/x.txt"), c));
+        // Absolute patterns match full paths.
+        assert!(ex.is_excluded(Path::new("C:/Temp/a.txt"), Path::new("C:/")));
     }
 }

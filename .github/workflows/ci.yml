@@ -34,7 +34,7 @@ jobs:
       - name: Clippy
         run: cargo clippy -p qidir-core -p qidir-cli --all-targets -- -D warnings
       - name: Tests
-        run: cargo test -p qidir-core -p qidir-cli --all-targets
+        run: cargo test -p qidir-core -p qidir-cli --all-targets --no-fail-fast
       - name: CLI smoke test
         shell: bash
         run: |
