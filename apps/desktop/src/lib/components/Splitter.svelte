@@ -30,6 +30,9 @@
   }
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="splitter" class:dragging role="separator" aria-orientation="vertical" aria-label={label} tabindex="0"
   onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} onkeydown={key}>
   <div class="bar"></div>

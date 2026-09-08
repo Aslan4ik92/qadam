@@ -37,7 +37,7 @@
 </script>
 
 {#if ui.contextMenu}
-  <div class="flyout ctx" bind:this={el} role="menu" style:left="{pos.x}px" style:top="{pos.y}px" oncontextmenu={(e) => e.preventDefault()}>
+  <div class="flyout ctx" bind:this={el} role="menu" tabindex="-1" style:left="{pos.x}px" style:top="{pos.y}px" oncontextmenu={(e) => e.preventDefault()}>
     {#each ui.contextMenu.items as item (item.id)}
       {#if item.separatorBefore}<div class="menu-sep"></div>{/if}
       <button class="menu-item" role="menuitem" onclick={() => { const run = item.run; ui.closeContextMenu(); run(); }}>
