@@ -76,12 +76,19 @@ pub fn extension_of(path: &Path) -> String {
 /// readability.
 pub fn path_key(path: &Path) -> String {
     let s = path.to_string_lossy();
-    if let Some(stripped) = s.strip_prefix(r"\\?\UNC\") {
+    let key = if let Some(stripped) = s.strip_prefix(r"\\?\UNC\") {
         format!(r"\\{stripped}")
     } else if let Some(stripped) = s.strip_prefix(r"\\?\") {
         stripped.to_string()
     } else {
         s.into_owned()
+    };
+    // Windows accepts `/` as a separator (and `PathBuf::join` keeps whatever
+    // the caller passed), so normalize to backslashes to keep keys unique.
+    if cfg!(windows) {
+        key.replace('/', "\\")
+    } else {
+        key
     }
 }
 
@@ -120,6 +127,12 @@ mod tests {
         assert_eq!(path_key(Path::new(r"\\?\C:\Users\a.txt")), r"C:\Users\a.txt");
         assert_eq!(path_key(Path::new(r"\\?\UNC\server\share\f")), r"\\server\share\f");
         assert_eq!(path_key(Path::new("/home/u/f")), "/home/u/f");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn normalizes_forward_slashes_on_windows() {
+        assert_eq!(path_key(Path::new(r"C:\Docs").join("a/b.txt").as_path()), r"C:\Docs\a\b.txt");
     }
 
     #[test]
