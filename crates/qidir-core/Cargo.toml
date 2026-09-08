@@ -1,0 +1,47 @@
+[package]
+name = "qidir-core"
+description = "QIDIR search engine core: multilingual (RU/KZ/EN) full-text indexing and search of local files"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+name = "qidir_core"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+parking_lot.workspace = true
+crossbeam-channel.workspace = true
+rayon.workspace = true
+tantivy.workspace = true
+rust-stemmers.workspace = true
+unicode-normalization.workspace = true
+walkdir.workspace = true
+globset.workspace = true
+notify.workspace = true
+notify-debouncer-full.workspace = true
+redb.workspace = true
+zip.workspace = true
+quick-xml.workspace = true
+calamine.workspace = true
+pdf-extract.workspace = true
+cfb.workspace = true
+chardetng.workspace = true
+encoding_rs.workspace = true
+regex.workspace = true
+chrono.workspace = true
+directories.workspace = true
+num_cpus.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+encoding_rs.workspace = true
+zip.workspace = true

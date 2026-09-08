@@ -1,0 +1,25 @@
+[package]
+name = "qidir-cli"
+description = "QIDIR command line: index folders and search them from a terminal"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "qidir"
+path = "src/main.rs"
+
+[dependencies]
+qidir-core.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+chrono.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
