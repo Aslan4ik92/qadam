@@ -26,19 +26,11 @@ pub fn detect_bomless_utf16(bytes: &[u8]) -> Option<&'static Encoding> {
     }
     let is_hi = |b: u8| b == 0x00 || b == 0x04 || b == 0x05 || b == 0x20 || b == 0x21;
     let half = sample.len() / 2;
-    let odd_hi = sample
-        .iter()
-        .skip(1)
-        .step_by(2)
-        .filter(|&&b| is_hi(b))
-        .count();
+    let odd_hi = sample.iter().skip(1).step_by(2).filter(|&&b| is_hi(b)).count();
     let even_hi = sample.iter().step_by(2).filter(|&&b| is_hi(b)).count();
     // Low bytes of real text are mostly printable.
-    let even_printable = sample
-        .iter()
-        .step_by(2)
-        .filter(|&&b| b >= 0x20 || b == b'\n' || b == b'\r' || b == b'\t')
-        .count();
+    let even_printable =
+        sample.iter().step_by(2).filter(|&&b| b >= 0x20 || b == b'\n' || b == b'\r' || b == b'\t').count();
     let odd_printable = sample
         .iter()
         .skip(1)
@@ -76,10 +68,7 @@ pub fn looks_binary(bytes: &[u8]) -> bool {
 /// Decode `bytes` into a `String`, guessing the encoding.
 pub fn decode(bytes: &[u8]) -> Decoded {
     if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
-        return Decoded {
-            text: UTF_8.decode_with_bom_removal(bytes).0.into_owned(),
-            encoding: "UTF-8",
-        };
+        return Decoded { text: UTF_8.decode_with_bom_removal(bytes).0.into_owned(), encoding: "UTF-8" };
     }
     if bytes.starts_with(&[0xFF, 0xFE]) {
         return Decoded {
@@ -97,27 +86,18 @@ pub fn decode(bytes: &[u8]) -> Decoded {
     // checked before UTF-8 validation: Cyrillic UTF-16LE happens to be valid
     // UTF-8 garbage (`0x22 0x04` ...).
     if let Some(enc) = detect_bomless_utf16(bytes) {
-        return Decoded {
-            text: enc.decode_without_bom_handling(bytes).0.into_owned(),
-            encoding: enc.name(),
-        };
+        return Decoded { text: enc.decode_without_bom_handling(bytes).0.into_owned(), encoding: enc.name() };
     }
     // Valid UTF-8 wins outright.
     if let Ok(s) = std::str::from_utf8(bytes) {
-        return Decoded {
-            text: s.to_string(),
-            encoding: "UTF-8",
-        };
+        return Decoded { text: s.to_string(), encoding: "UTF-8" };
     }
     let mut detector = chardetng::EncodingDetector::new();
     detector.feed(&bytes[..bytes.len().min(256 * 1024)], true);
     // Hint the detector towards Cyrillic legacy encodings via TLD `ru`.
     let enc: &'static Encoding = detector.guess(Some(b"ru"), true);
     let (cow, _, _) = enc.decode(bytes);
-    Decoded {
-        text: cow.into_owned(),
-        encoding: enc.name(),
-    }
+    Decoded { text: cow.into_owned(), encoding: enc.name() }
 }
 
 #[cfg(test)]
@@ -133,8 +113,8 @@ mod tests {
 
     #[test]
     fn cp1251() {
-        let (bytes, _, _) = encoding_rs::WINDOWS_1251
-            .encode("Отчёт о продажах за квартал. Қазақстан Республикасы.");
+        let (bytes, _, _) =
+            encoding_rs::WINDOWS_1251.encode("Отчёт о продажах за квартал. Қазақстан Республикасы.");
         let d = decode(&bytes);
         assert_eq!(d.encoding, "windows-1251");
         assert!(d.text.contains("Отчёт о продажах"));
@@ -169,8 +149,7 @@ mod tests {
     #[test]
     fn binary_detection() {
         let mut exe = vec![
-            0x4D, 0x5A, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0xFF, 0xFF,
-            0x00, 0x00,
+            0x4D, 0x5A, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00,
         ];
         exe.extend((0..64u8).map(|i| i.wrapping_mul(37)));
         assert!(looks_binary(&exe));

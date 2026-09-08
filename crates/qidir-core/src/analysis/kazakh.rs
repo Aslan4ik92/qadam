@@ -16,10 +16,8 @@
 //!   plural → derivational/participle.
 
 /// Personal (predicative) endings: `мен оқушы-мын`, `сен оқушы-сың`.
-const PERSONAL: &[&str] = &[
-    "мын", "мін", "бын", "бін", "пын", "пін", "сың", "сің", "сыз", "сіз", "мыз", "міз", "ңыз",
-    "ңіз",
-];
+const PERSONAL: &[&str] =
+    &["мын", "мін", "бын", "бін", "пын", "пін", "сың", "сің", "сыз", "сіз", "мыз", "міз", "ңыз", "ңіз"];
 
 /// Case endings (genitive, dative, accusative, locative, ablative, instrumental).
 const CASE: &[&str] = &[
@@ -69,8 +67,8 @@ const CASE: &[&str] = &[
 
 /// Possessive endings.
 const POSSESSIVE: &[&str] = &[
-    "ымыз", "іміз", "ыңыз", "іңіз", "мыз", "міз", "ңыз", "ңіз", "ым", "ім", "ың", "ің", "сы", "сі",
-    "ы", "і", "м", "ң",
+    "ымыз", "іміз", "ыңыз", "іңіз", "мыз", "міз", "ңыз", "ңіз", "ым", "ім", "ың", "ің", "сы", "сі", "ы", "і",
+    "м", "ң",
 ];
 
 /// Plural endings.

@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Build & publish Windows installers
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: desktop-windows
+      - name: Install frontend dependencies
+        working-directory: apps/desktop
+        run: npm ci
+      - name: Build and upload release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional code signing: set these repository secrets to sign the
+          # installers with your certificate.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: "QIDIR ${{ github.ref_name }}"
+          releaseBody: |
+            Установщики QIDIR для Windows 10/11 (x64):
+            * `QIDIR_*_x64-setup.exe` — NSIS, установка для текущего пользователя, не требует прав администратора
+            * `QIDIR_*_x64_ru-RU.msi` — MSI для корпоративного развёртывания
+
+            QIDIR installers for Windows 10/11 (x64).
+          releaseDraft: true
+          prerelease: false
+          args: --ci

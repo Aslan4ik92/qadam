@@ -17,15 +17,9 @@ pub fn spreadsheet(bytes: &[u8], ext: &str) -> Result<String> {
         "xlsx" | "xlsm" | "xltx" | "xltm" => {
             Sheets::Xlsx(calamine::Xlsx::new(cursor).map_err(|e| Error::Extract(e.to_string()))?)
         }
-        "xlsb" => {
-            Sheets::Xlsb(calamine::Xlsb::new(cursor).map_err(|e| Error::Extract(e.to_string()))?)
-        }
-        "xls" | "xlt" => {
-            Sheets::Xls(calamine::Xls::new(cursor).map_err(|e| Error::Extract(e.to_string()))?)
-        }
-        "ods" | "ots" => {
-            Sheets::Ods(calamine::Ods::new(cursor).map_err(|e| Error::Extract(e.to_string()))?)
-        }
+        "xlsb" => Sheets::Xlsb(calamine::Xlsb::new(cursor).map_err(|e| Error::Extract(e.to_string()))?),
+        "xls" | "xlt" => Sheets::Xls(calamine::Xls::new(cursor).map_err(|e| Error::Extract(e.to_string()))?),
+        "ods" | "ots" => Sheets::Ods(calamine::Ods::new(cursor).map_err(|e| Error::Extract(e.to_string()))?),
         _ => return Err(Error::Unsupported(ext.to_string())),
     };
 
@@ -103,11 +97,8 @@ fn excel_datetime_to_string(serial: f64) -> String {
     if secs == 0 {
         date.format("%Y-%m-%d").to_string()
     } else {
-        let t =
-            chrono::NaiveTime::from_num_seconds_from_midnight_opt(secs as u32 % 86_400, 0).unwrap();
-        chrono::NaiveDateTime::new(date, t)
-            .format("%Y-%m-%d %H:%M")
-            .to_string()
+        let t = chrono::NaiveTime::from_num_seconds_from_midnight_opt(secs as u32 % 86_400, 0).unwrap();
+        chrono::NaiveDateTime::new(date, t).format("%Y-%m-%d %H:%M").to_string()
     }
 }
 

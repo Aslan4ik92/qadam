@@ -37,12 +37,10 @@ pub const EXACT_TOKENIZER: &str = "qidir_exact";
 /// Register both QIDIR analyzers on a tantivy index.
 pub fn register_tokenizers(index: &tantivy::Index) {
     use tantivy::tokenizer::TextAnalyzer;
-    index.tokenizers().register(
-        STEM_TOKENIZER,
-        TextAnalyzer::builder(QidirTokenizer::new(AnalysisMode::Stem)).build(),
-    );
-    index.tokenizers().register(
-        EXACT_TOKENIZER,
-        TextAnalyzer::builder(QidirTokenizer::new(AnalysisMode::Exact)).build(),
-    );
+    index
+        .tokenizers()
+        .register(STEM_TOKENIZER, TextAnalyzer::builder(QidirTokenizer::new(AnalysisMode::Stem)).build());
+    index
+        .tokenizers()
+        .register(EXACT_TOKENIZER, TextAnalyzer::builder(QidirTokenizer::new(AnalysisMode::Exact)).build());
 }

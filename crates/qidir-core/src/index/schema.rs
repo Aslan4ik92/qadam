@@ -20,8 +20,8 @@
 use std::path::Path;
 
 use tantivy::schema::{
-    Field, IndexRecordOption, Schema, SchemaBuilder, TextFieldIndexing, TextOptions, FAST, INDEXED,
-    STORED, STRING,
+    Field, IndexRecordOption, Schema, SchemaBuilder, TextFieldIndexing, TextOptions, FAST, INDEXED, STORED,
+    STRING,
 };
 use tantivy::Index;
 

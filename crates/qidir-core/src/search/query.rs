@@ -21,8 +21,7 @@ use std::collections::HashSet;
 use std::ops::Bound;
 
 use tantivy::query::{
-    BooleanQuery, BoostQuery, FuzzyTermQuery, Occur, PhraseQuery, Query, RangeQuery, RegexQuery,
-    TermQuery,
+    BooleanQuery, BoostQuery, FuzzyTermQuery, Occur, PhraseQuery, Query, RangeQuery, RegexQuery, TermQuery,
 };
 use tantivy::schema::{Field, IndexRecordOption};
 use tantivy::Term;
@@ -122,11 +121,7 @@ fn split_tokens(input: &str) -> Vec<String> {
                     out.push(std::mem::take(&mut cur));
                     in_quotes = false;
                 } else {
-                    if !cur.is_empty()
-                        && !cur.ends_with(':')
-                        && !cur.ends_with('-')
-                        && !cur.ends_with('!')
-                    {
+                    if !cur.is_empty() && !cur.ends_with(':') && !cur.ends_with('-') && !cur.ends_with('!') {
                         out.push(std::mem::take(&mut cur));
                     }
                     cur.push('"');
@@ -161,9 +156,7 @@ fn parse_clause(raw: &str) -> Option<Clause> {
                 "name" | "имя" | "файл" | "file" | "атау" => Some(FieldSel::Name),
                 "ext" | "расш" | "тип" | "type" => Some(FieldSel::Ext),
                 "path" | "путь" | "folder" | "папка" | "жол" => Some(FieldSel::Path),
-                "content" | "text" | "текст" | "мәтін" | "body" => {
-                    Some(FieldSel::Content)
-                }
+                "content" | "text" | "текст" | "мәтін" | "body" => Some(FieldSel::Content),
                 _ => None,
             };
             if let Some(sel) = sel {
@@ -180,27 +173,15 @@ fn parse_clause(raw: &str) -> Option<Clause> {
         if inner.is_empty() {
             return None;
         }
-        return Some(Clause {
-            text: inner.to_string(),
-            field,
-            kind: ClauseKind::Phrase,
-        });
+        return Some(Clause { text: inner.to_string(), field, kind: ClauseKind::Phrase });
     }
     // fuzzy suffix
     if let Some(pos) = s.rfind('~') {
         let (base, dist) = s.split_at(pos);
         let dist = &dist[1..];
-        let d: Option<u8> = if dist.is_empty() {
-            Some(1)
-        } else {
-            dist.parse().ok()
-        };
+        let d: Option<u8> = if dist.is_empty() { Some(1) } else { dist.parse().ok() };
         if let (false, Some(d)) = (base.is_empty(), d) {
-            return Some(Clause {
-                text: base.to_string(),
-                field,
-                kind: ClauseKind::Fuzzy(d.clamp(1, 2)),
-            });
+            return Some(Clause { text: base.to_string(), field, kind: ClauseKind::Fuzzy(d.clamp(1, 2)) });
         }
     }
     let trimmed = s.trim_end_matches('*');
@@ -208,24 +189,12 @@ fn parse_clause(raw: &str) -> Option<Clause> {
         if trimmed.is_empty() {
             return None;
         }
-        return Some(Clause {
-            text: trimmed.to_string(),
-            field,
-            kind: ClauseKind::Prefix,
-        });
+        return Some(Clause { text: trimmed.to_string(), field, kind: ClauseKind::Prefix });
     }
     if s.contains(['*', '?']) {
-        return Some(Clause {
-            text: s.to_string(),
-            field,
-            kind: ClauseKind::Wildcard,
-        });
+        return Some(Clause { text: s.to_string(), field, kind: ClauseKind::Wildcard });
     }
-    Some(Clause {
-        text: s.to_string(),
-        field,
-        kind: ClauseKind::Term,
-    })
+    Some(Clause { text: s.to_string(), field, kind: ClauseKind::Term })
 }
 
 /// Parse user input into a [`ParsedQuery`]. Never fails: unparseable pieces
@@ -351,31 +320,20 @@ impl QueryBuilder {
                     let pattern = wildcard_to_regex(&clause.text);
                     match RegexQuery::from_pattern(&pattern, field) {
                         Ok(q) => Some(Box::new(q) as Box<dyn Query>),
-                        Err(e) => {
-                            return Err(Error::Query(format!(
-                                "bad wildcard `{}`: {e}",
-                                clause.text
-                            )))
-                        }
+                        Err(e) => return Err(Error::Query(format!("bad wildcard `{}`: {e}", clause.text))),
                     }
                 }
                 ClauseKind::Fuzzy(d) => {
                     let toks = analyze(&clause.text, AnalysisMode::Exact);
                     toks.first().map(|t| {
-                        Box::new(FuzzyTermQuery::new(
-                            Term::from_field_text(field, &t.term),
-                            *d,
-                            true,
-                        )) as Box<dyn Query>
+                        Box::new(FuzzyTermQuery::new(Term::from_field_text(field, &t.term), *d, true))
+                            as Box<dyn Query>
                     })
                 }
             };
             if let Some(q) = q {
-                let boosted: Box<dyn Query> = if (boost - 1.0).abs() > f32::EPSILON {
-                    Box::new(BoostQuery::new(q, boost))
-                } else {
-                    q
-                };
+                let boosted: Box<dyn Query> =
+                    if (boost - 1.0).abs() > f32::EPSILON { Box::new(BoostQuery::new(q, boost)) } else { q };
                 alts.push((Occur::Should, boosted));
             }
         }
@@ -439,9 +397,7 @@ impl QueryBuilder {
                     }
                 }
                 ClauseKind::Wildcard => {
-                    if let Ok(re) =
-                        regex::Regex::new(&format!("^{}$", wildcard_to_regex(&clause.text)))
-                    {
+                    if let Ok(re) = regex::Regex::new(&format!("^{}$", wildcard_to_regex(&clause.text))) {
                         m.regexes.push(re);
                     }
                 }
@@ -505,10 +461,7 @@ fn positional_query(field: Field, positions: &[Vec<String>]) -> Option<Box<dyn Q
             let combos: Vec<Vec<&str>> = if total > MAX_PHRASE_VARIANTS {
                 // Too many alternatives: primary stems + exact forms only.
                 let stems: Vec<&str> = positions.iter().map(|p| p[0].as_str()).collect();
-                let exact: Vec<&str> = positions
-                    .iter()
-                    .map(|p| p.last().unwrap().as_str())
-                    .collect();
+                let exact: Vec<&str> = positions.iter().map(|p| p.last().unwrap().as_str()).collect();
                 if stems == exact {
                     vec![stems]
                 } else {
@@ -532,8 +485,7 @@ fn positional_query(field: Field, positions: &[Vec<String>]) -> Option<Box<dyn Q
             let alts: Vec<(Occur, Box<dyn Query>)> = combos
                 .into_iter()
                 .map(|c| {
-                    let terms: Vec<Term> =
-                        c.iter().map(|t| Term::from_field_text(field, t)).collect();
+                    let terms: Vec<Term> = c.iter().map(|t| Term::from_field_text(field, t)).collect();
                     let q: Box<dyn Query> = Box::new(PhraseQuery::new(terms));
                     (Occur::Should, q)
                 })
@@ -588,13 +540,7 @@ pub(crate) fn i64_range(field: Field, min: Option<i64>, max: Option<i64>) -> Box
 
 /// Set of distinct analyzed terms in a query (for tests and diagnostics).
 pub fn query_terms(input: &str, mode: AnalysisMode) -> HashSet<String> {
-    parse(input)
-        .groups
-        .iter()
-        .flatten()
-        .flat_map(|c| analyze(&c.text, mode))
-        .map(|t| t.term)
-        .collect()
+    parse(input).groups.iter().flatten().flat_map(|c| analyze(&c.text, mode)).map(|t| t.term).collect()
 }
 
 #[cfg(test)]
@@ -602,11 +548,7 @@ mod tests {
     use super::*;
 
     fn c(text: &str, kind: ClauseKind) -> Clause {
-        Clause {
-            text: text.into(),
-            field: FieldSel::Default,
-            kind,
-        }
+        Clause { text: text.into(), field: FieldSel::Default, kind }
     }
 
     #[test]
@@ -618,20 +560,13 @@ mod tests {
         // attaches `контракт` to the previous positive group (the phrase).
         assert_eq!(
             q.groups[1],
-            vec![
-                c("аренды помещения", ClauseKind::Phrase),
-                c("контракт", ClauseKind::Term)
-            ]
+            vec![c("аренды помещения", ClauseKind::Phrase), c("контракт", ClauseKind::Term)]
         );
         assert_eq!(q.must_not, vec![c("расторжение", ClauseKind::Term)]);
         assert_eq!(q.groups[2][0].field, FieldSel::Ext);
         assert_eq!(
             q.groups[3],
-            vec![Clause {
-                text: "отчет".into(),
-                field: FieldSel::Name,
-                kind: ClauseKind::Prefix
-            }]
+            vec![Clause { text: "отчет".into(), field: FieldSel::Name, kind: ClauseKind::Prefix }]
         );
     }
 

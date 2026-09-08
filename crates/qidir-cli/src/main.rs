@@ -14,11 +14,7 @@ use qidir_core::search::{SearchMode, SearchRequest, SortOrder};
 use qidir_core::Engine;
 
 #[derive(Parser)]
-#[command(
-    name = "qidir",
-    version,
-    about = "QIDIR — local full-text search (RU/KZ/EN)"
-)]
+#[command(name = "qidir", version, about = "QIDIR — local full-text search (RU/KZ/EN)")]
 struct Cli {
     /// Data directory (index, manifest, settings). Defaults to the per-user
     /// application data folder.
@@ -123,23 +119,15 @@ fn main() -> Result<()> {
     // Commands that do not need an engine.
     match &cli.cmd {
         Cmd::Extract { path } => {
-            let meta = std::fs::metadata(path)
-                .with_context(|| format!("cannot stat {}", path.display()))?;
+            let meta = std::fs::metadata(path).with_context(|| format!("cannot stat {}", path.display()))?;
             let ext = qidir_core::fs_util::extension_of(path);
-            let opts = ExtractOptions {
-                max_file_size: u64::MAX,
-                ..ExtractOptions::default()
-            };
+            let opts = ExtractOptions { max_file_size: u64::MAX, ..ExtractOptions::default() };
             match qidir_core::extract::extract_file(path, &ext, meta.len(), &opts)? {
                 Some(e) => {
                     if let Some(enc) = e.encoding {
                         eprintln!("encoding: {enc}");
                     }
-                    eprintln!(
-                        "category: {:?}, {} chars",
-                        e.category,
-                        e.text.chars().count()
-                    );
+                    eprintln!("category: {:?}, {} chars", e.category, e.text.chars().count());
                     println!("{}", e.text);
                 }
                 None => eprintln!("unsupported format: indexed by name only"),
@@ -171,10 +159,7 @@ fn main() -> Result<()> {
             let path = std::fs::canonicalize(&path).unwrap_or(path);
             let mut s = engine.settings();
             if !s.roots.iter().any(|r| r.path == path) {
-                s.roots.push(IndexRoot {
-                    path: path.clone(),
-                    enabled: true,
-                });
+                s.roots.push(IndexRoot { path: path.clone(), enabled: true });
             }
             engine.update_settings(s)?;
             println!("added {}", path.display());
@@ -184,10 +169,7 @@ fn main() -> Result<()> {
             let mut s = engine.settings();
             s.roots.retain(|r| r.path != path);
             engine.update_settings(s)?;
-            println!(
-                "removed {} (run `qidir index` to drop its documents)",
-                path.display()
-            );
+            println!("removed {} (run `qidir index` to drop its documents)", path.display());
         }
         Cmd::Settings => println!("{}", serde_json::to_string_pretty(&engine.settings())?),
         Cmd::Set { key, value } => {
@@ -206,17 +188,12 @@ fn main() -> Result<()> {
                 let mut s = engine.settings();
                 s.roots = roots
                     .into_iter()
-                    .map(|p| IndexRoot {
-                        path: std::fs::canonicalize(&p).unwrap_or(p),
-                        enabled: true,
-                    })
+                    .map(|p| IndexRoot { path: std::fs::canonicalize(&p).unwrap_or(p), enabled: true })
                     .collect();
                 engine.update_settings(s)?;
             }
             if engine.settings().roots.is_empty() {
-                anyhow::bail!(
-                    "no roots configured; use `qidir add-root <folder>` or `--root <folder>`"
-                );
+                anyhow::bail!("no roots configured; use `qidir add-root <folder>` or `--root <folder>`");
             }
             let sink = Arc::new(|s: &qidir_core::index::indexer::IndexSummary| {
                 eprint!(
@@ -251,32 +228,15 @@ fn main() -> Result<()> {
                 }
             }
         }
-        Cmd::Search {
-            query,
-            exact,
-            limit,
-            offset,
-            ext,
-            category,
-            sort,
-            json,
-        } => {
+        Cmd::Search { query, exact, limit, offset, ext, category, sort, json } => {
             let req = SearchRequest {
                 query: query.join(" "),
-                mode: if exact {
-                    SearchMode::Exact
-                } else {
-                    SearchMode::Smart
-                },
+                mode: if exact { SearchMode::Exact } else { SearchMode::Smart },
                 extensions: ext
                     .map(|e| e.split(',').map(|s| s.trim().to_lowercase()).collect())
                     .unwrap_or_default(),
                 categories: category
-                    .map(|c| {
-                        c.split(',')
-                            .filter_map(|s| FileCategory::parse(s.trim()))
-                            .collect()
-                    })
+                    .map(|c| c.split(',').filter_map(|s| FileCategory::parse(s.trim())).collect())
                     .unwrap_or_default(),
                 sort: match sort {
                     SortArg::Relevance => SortOrder::Relevance,
@@ -292,32 +252,19 @@ fn main() -> Result<()> {
             if json {
                 println!("{}", serde_json::to_string_pretty(&res)?);
             } else {
-                println!(
-                    "{} results in {} ms  [{}]",
-                    res.total, res.took_ms, res.interpretation
-                );
+                println!("{} results in {} ms  [{}]", res.total, res.took_ms, res.interpretation);
                 for (i, h) in res.hits.iter().enumerate() {
                     let date = chrono::DateTime::from_timestamp(h.modified, 0)
                         .map(|d| d.format("%Y-%m-%d %H:%M").to_string())
                         .unwrap_or_default();
-                    println!(
-                        "{:>3}. {}  ({}, {})",
-                        offset + i + 1,
-                        h.path,
-                        human_size(h.size),
-                        date
-                    );
+                    println!("{:>3}. {}  ({}, {})", offset + i + 1, h.path, human_size(h.size), date);
                     if !h.snippet.is_empty() {
                         println!("     {}", strip_marks(&h.snippet));
                     }
                 }
                 if !res.facets.categories.is_empty() {
-                    let f: Vec<String> = res
-                        .facets
-                        .categories
-                        .iter()
-                        .map(|c| format!("{} {}", c.value, c.count))
-                        .collect();
+                    let f: Vec<String> =
+                        res.facets.categories.iter().map(|c| format!("{} {}", c.value, c.count)).collect();
                     println!("types: {}", f.join(", "));
                 }
             }
@@ -329,11 +276,7 @@ fn main() -> Result<()> {
         }
         Cmd::Preview { path, query, exact } => {
             let key = qidir_core::fs_util::path_key(&std::fs::canonicalize(&path).unwrap_or(path));
-            let mode = if exact {
-                SearchMode::Exact
-            } else {
-                SearchMode::Smart
-            };
+            let mode = if exact { SearchMode::Exact } else { SearchMode::Smart };
             let p = engine.preview(&key, &query.join(" "), mode)?;
             eprintln!(
                 "{} matches, source={}, {} chars{}",

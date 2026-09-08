@@ -44,11 +44,7 @@ pub struct ExtractOptions {
 
 impl Default for ExtractOptions {
     fn default() -> Self {
-        Self {
-            max_file_size: 64 * 1024 * 1024,
-            extract_pdf: true,
-            max_text_chars: 5_000_000,
-        }
+        Self { max_file_size: 64 * 1024 * 1024, extract_pdf: true, max_text_chars: 5_000_000 }
     }
 }
 
@@ -117,21 +113,12 @@ pub fn extract_bytes(bytes: &[u8], ext: &str, opts: &ExtractOptions) -> Result<E
         Extractor::NameOnly => return Err(Error::Unsupported(ext.to_string())),
     };
     let text = truncate_chars(text, opts.max_text_chars);
-    Ok(Extracted {
-        text,
-        encoding,
-        category,
-    })
+    Ok(Extracted { text, encoding, category })
 }
 
 /// Read and extract a file from disk. Returns `Ok(None)` when the file is a
 /// known-but-unsupported type or exceeds the size limit (index by name only).
-pub fn extract_file(
-    path: &Path,
-    ext: &str,
-    size: u64,
-    opts: &ExtractOptions,
-) -> Result<Option<Extracted>> {
+pub fn extract_file(path: &Path, ext: &str, size: u64, opts: &ExtractOptions) -> Result<Option<Extracted>> {
     let (_, extractor) = classify(ext);
     if extractor == Extractor::NameOnly {
         return Ok(None);
@@ -184,18 +171,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path().join("x.exe");
         std::fs::write(&p, b"MZ\0\0").unwrap();
-        assert!(extract_file(&p, "exe", 4, &ExtractOptions::default())
-            .unwrap()
-            .is_none());
+        assert!(extract_file(&p, "exe", 4, &ExtractOptions::default()).unwrap().is_none());
     }
 
     #[test]
     fn binary_disguised_as_txt_is_error() {
-        assert!(extract_bytes(
-            &[0u8, 1, 2, 3, 0, 0, 0, 5],
-            "txt",
-            &ExtractOptions::default()
-        )
-        .is_err());
+        assert!(extract_bytes(&[0u8, 1, 2, 3, 0, 0, 0, 5], "txt", &ExtractOptions::default()).is_err());
     }
 }

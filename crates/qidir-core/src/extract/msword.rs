@@ -35,11 +35,7 @@ pub fn doc(bytes: &[u8]) -> Result<String> {
     if encrypted {
         return Err(Error::Extract("document is encrypted".into()));
     }
-    let which_table = if flags & 0x0200 != 0 {
-        "/1Table"
-    } else {
-        "/0Table"
-    };
+    let which_table = if flags & 0x0200 != 0 { "/1Table" } else { "/0Table" };
 
     if n_fib >= 0x00C1 && word.len() > LCB_CLX + 4 {
         if let Ok(text) = piece_table_text(&mut cfb, &word, which_table) {
@@ -214,14 +210,8 @@ mod tests {
         let mut cursor = Cursor::new(Vec::new());
         {
             let mut comp = cfb::CompoundFile::create(&mut cursor).unwrap();
-            comp.create_stream("/WordDocument")
-                .unwrap()
-                .write_all(&word)
-                .unwrap();
-            comp.create_stream("/1Table")
-                .unwrap()
-                .write_all(&table)
-                .unwrap();
+            comp.create_stream("/WordDocument").unwrap().write_all(&word).unwrap();
+            comp.create_stream("/1Table").unwrap().write_all(&table).unwrap();
             comp.flush().unwrap();
         }
         cursor.into_inner()

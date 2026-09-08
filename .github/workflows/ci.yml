@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  rust:
+    name: Rust core & CLI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: core-${{ matrix.os }}
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy -p qidir-core -p qidir-cli --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test -p qidir-core -p qidir-cli --all-targets
+      - name: CLI smoke test
+        shell: bash
+        run: |
+          cargo run -q -p qidir-cli -- --data-dir "$RUNNER_TEMP/qidir-smoke" index --root docs
+          cargo run -q -p qidir-cli -- --data-dir "$RUNNER_TEMP/qidir-smoke" search qidir
+
+  frontend:
+    name: Frontend (Svelte)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run test
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: apps/desktop/dist
+          retention-days: 7
+
+  desktop-windows:
+    name: Windows installer (NSIS + MSI)
+    runs-on: windows-latest
+    needs: [rust, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> target"
+          shared-key: desktop-windows
+      - name: Install frontend dependencies
+        working-directory: apps/desktop
+        run: npm ci
+      - name: Build QIDIR (tauri build)
+        working-directory: apps/desktop
+        run: npm run tauri -- build --ci
+      - name: Collect installers
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path installers | Out-Null
+          Get-ChildItem -Recurse target/release/bundle -Include *.exe,*.msi | Copy-Item -Destination installers
+          Get-ChildItem installers
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QIDIR-windows-installers
+          path: installers/*
+          retention-days: 14
+
+  desktop-linux-check:
+    name: Desktop crate check (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: System dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: desktop-linux
+      - name: Placeholder frontend dist
+        run: mkdir -p apps/desktop/dist && echo '<!doctype html>' > apps/desktop/dist/index.html
+      - run: cargo clippy -p qidir-desktop -- -D warnings

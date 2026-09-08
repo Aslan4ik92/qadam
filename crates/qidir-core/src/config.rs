@@ -253,10 +253,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("settings.json");
         let mut s = Settings::default();
-        s.roots.push(IndexRoot {
-            path: PathBuf::from("C:\\Docs"),
-            enabled: true,
-        });
+        s.roots.push(IndexRoot { path: PathBuf::from("C:\\Docs"), enabled: true });
         s.include_extensions = vec![".DOCX".into(), "txt".into()];
         s.save(&file).unwrap();
         let loaded = Settings::load(&file).unwrap();

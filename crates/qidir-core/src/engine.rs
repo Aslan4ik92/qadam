@@ -22,9 +22,7 @@ use crate::fs_util::{extension_of, path_key};
 use crate::index::indexer::{self, Counters, IndexPhase, IndexSummary, ProgressSink};
 use crate::index::watcher::Watcher;
 use crate::index::{open_or_create_index, schema::SCHEMA_VERSION, Fields, IndexJob, Manifest};
-use crate::search::{
-    self, highlight, Matcher, QueryBuilder, SearchMode, SearchRequest, SearchResponse,
-};
+use crate::search::{self, highlight, Matcher, QueryBuilder, SearchMode, SearchRequest, SearchResponse};
 
 /// Progress report exposed to the UI.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -145,15 +143,9 @@ impl Engine {
         let mut manifest = Manifest::open(&manifest_path)?;
 
         // Schema migration: rebuild from scratch when the layout changed.
-        let stored_version = manifest
-            .get_meta("schema_version")?
-            .and_then(|v| v.parse::<u32>().ok());
+        let stored_version = manifest.get_meta("schema_version")?.and_then(|v| v.parse::<u32>().ok());
         if stored_version != Some(SCHEMA_VERSION) && paths.index_dir.exists() {
-            tracing::info!(
-                ?stored_version,
-                SCHEMA_VERSION,
-                "schema changed, rebuilding index"
-            );
+            tracing::info!(?stored_version, SCHEMA_VERSION, "schema changed, rebuilding index");
             drop(manifest);
             let _ = std::fs::remove_dir_all(&paths.index_dir);
             let _ = std::fs::remove_file(&manifest_path);
@@ -162,10 +154,7 @@ impl Engine {
         manifest.set_meta("schema_version", &SCHEMA_VERSION.to_string())?;
 
         let (index, fields) = open_or_create_index(&paths.index_dir)?;
-        let reader = index
-            .reader_builder()
-            .reload_policy(ReloadPolicy::Manual)
-            .try_into()?;
+        let reader = index.reader_builder().reload_policy(ReloadPolicy::Manual).try_into()?;
         let writer = Self::create_writer(&index, &settings)?;
 
         Ok(Arc::new(Self {
@@ -259,11 +248,7 @@ impl Engine {
 
     /// Start indexing in a background thread. `full` re-extracts every file.
     pub fn start_indexing(self: &Arc<Self>, full: bool) -> Result<()> {
-        if self
-            .running
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            .is_err()
-        {
+        if self.running.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
             return Err(Error::AlreadyIndexing);
         }
         self.cancel.store(false, Ordering::SeqCst);
@@ -287,26 +272,24 @@ impl Engine {
             full,
         };
         let engine = Arc::clone(self);
-        std::thread::Builder::new()
-            .name("qidir-index".into())
-            .spawn(move || {
-                let _guard = engine.job_lock.lock();
-                let result = job.run();
-                match &result {
-                    Ok(s) => tracing::info!(
-                        indexed = s.indexed,
-                        deleted = s.deleted,
-                        unchanged = s.unchanged,
-                        "indexing finished"
-                    ),
-                    Err(Error::Cancelled) => tracing::info!("indexing cancelled"),
-                    Err(e) => tracing::error!(error = %e, "indexing failed"),
-                }
-                if let Err(e) = engine.reader.reload() {
-                    tracing::error!(error = %e, "reader reload failed");
-                }
-                engine.running.store(false, Ordering::SeqCst);
-            })?;
+        std::thread::Builder::new().name("qidir-index".into()).spawn(move || {
+            let _guard = engine.job_lock.lock();
+            let result = job.run();
+            match &result {
+                Ok(s) => tracing::info!(
+                    indexed = s.indexed,
+                    deleted = s.deleted,
+                    unchanged = s.unchanged,
+                    "indexing finished"
+                ),
+                Err(Error::Cancelled) => tracing::info!("indexing cancelled"),
+                Err(e) => tracing::error!(error = %e, "indexing failed"),
+            }
+            if let Err(e) = engine.reader.reload() {
+                tracing::error!(error = %e, "reader reload failed");
+            }
+            engine.running.store(false, Ordering::SeqCst);
+        })?;
         Ok(())
     }
 
@@ -410,37 +393,29 @@ impl Engine {
         if slot.is_some() {
             return Ok(());
         }
-        let roots: Vec<PathBuf> = self
-            .settings
-            .read()
-            .roots
-            .iter()
-            .filter(|r| r.enabled)
-            .map(|r| r.path.clone())
-            .collect();
+        let roots: Vec<PathBuf> =
+            self.settings.read().roots.iter().filter(|r| r.enabled).map(|r| r.path.clone()).collect();
         if roots.is_empty() {
             return Ok(());
         }
         let (tx, rx) = chan::unbounded::<Vec<PathBuf>>();
         let watcher = Watcher::start(&roots, tx)?;
         let engine = Arc::clone(self);
-        std::thread::Builder::new()
-            .name("qidir-watch".into())
-            .spawn(move || {
-                while let Ok(mut paths) = rx.recv() {
-                    // Coalesce bursts.
-                    while let Ok(more) = rx.try_recv() {
-                        paths.extend(more);
-                    }
-                    paths.sort();
-                    paths.dedup();
-                    match engine.update_paths(&paths) {
-                        Ok(n) if n > 0 => tracing::info!(changed = n, "watcher applied updates"),
-                        Ok(_) => {}
-                        Err(e) => tracing::warn!(error = %e, "watcher update failed"),
-                    }
+        std::thread::Builder::new().name("qidir-watch".into()).spawn(move || {
+            while let Ok(mut paths) = rx.recv() {
+                // Coalesce bursts.
+                while let Ok(more) = rx.try_recv() {
+                    paths.extend(more);
                 }
-            })?;
+                paths.sort();
+                paths.dedup();
+                match engine.update_paths(&paths) {
+                    Ok(n) if n > 0 => tracing::info!(changed = n, "watcher applied updates"),
+                    Ok(_) => {}
+                    Err(e) => tracing::warn!(error = %e, "watcher update failed"),
+                }
+            }
+        })?;
         *slot = Some(watcher);
         Ok(())
     }
@@ -477,10 +452,7 @@ impl Engine {
                 text = Some(body.to_string());
                 source = "index";
             }
-            encoding = doc
-                .get_first(self.fields.encoding)
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
+            encoding = doc.get_first(self.fields.encoding).and_then(|v| v.as_str()).map(|s| s.to_string());
         }
         // 2. Re-extract from disk.
         if text.is_none() {
@@ -521,10 +493,7 @@ impl Engine {
 
     /// Analyze arbitrary text (diagnostics / "how will this be searched?").
     pub fn analyze_text(&self, text: &str, mode: SearchMode) -> Vec<String> {
-        crate::analysis::analyze(text, mode.analysis())
-            .into_iter()
-            .map(|t| t.term)
-            .collect()
+        crate::analysis::analyze(text, mode.analysis()).into_iter().map(|t| t.term).collect()
     }
 
     // ------------------------------------------------------------------ stats
@@ -533,10 +502,7 @@ impl Engine {
         let searcher = self.reader.searcher();
         let documents = searcher.search(&AllQuery, &Count)? as u64;
         let with_content = searcher.search(
-            &TermQuery::new(
-                Term::from_field_u64(self.fields.has_content, 1),
-                IndexRecordOption::Basic,
-            ),
+            &TermQuery::new(Term::from_field_u64(self.fields.has_content, 1), IndexRecordOption::Basic),
             &Count,
         )? as u64;
         let settings = self.settings();
@@ -544,28 +510,17 @@ impl Engine {
         for r in &settings.roots {
             let key = path_key(&r.path);
             let n = searcher.search(
-                &TermQuery::new(
-                    Term::from_field_text(self.fields.root, &key),
-                    IndexRecordOption::Basic,
-                ),
+                &TermQuery::new(Term::from_field_text(self.fields.root, &key), IndexRecordOption::Basic),
                 &Count,
             )? as u64;
-            roots.push(RootStats {
-                path: key,
-                enabled: r.enabled,
-                exists: r.path.exists(),
-                documents: n,
-            });
+            roots.push(RootStats { path: key, enabled: r.enabled, exists: r.path.exists(), documents: n });
         }
         Ok(IndexStats {
             documents,
             with_content,
             index_size_bytes: dir_size(&self.paths.index_dir)
                 + dir_size(&self.paths.data_dir.join("manifest.redb")),
-            last_indexed: self
-                .manifest
-                .get_meta("last_indexed")?
-                .and_then(|v| v.parse().ok()),
+            last_indexed: self.manifest.get_meta("last_indexed")?.and_then(|v| v.parse().ok()),
             roots,
             indexing: self.running.load(Ordering::SeqCst),
             watching: self.is_watching(),
@@ -605,22 +560,13 @@ fn segments_from_ranges(text: &str, ranges: &[std::ops::Range<usize>]) -> Vec<Pr
     let mut cursor = 0;
     for r in ranges {
         if r.start > cursor {
-            out.push(PreviewSegment {
-                text: text[cursor..r.start].to_string(),
-                highlight: false,
-            });
+            out.push(PreviewSegment { text: text[cursor..r.start].to_string(), highlight: false });
         }
-        out.push(PreviewSegment {
-            text: text[r.start..r.end].to_string(),
-            highlight: true,
-        });
+        out.push(PreviewSegment { text: text[r.start..r.end].to_string(), highlight: true });
         cursor = r.end;
     }
     if cursor < text.len() {
-        out.push(PreviewSegment {
-            text: text[cursor..].to_string(),
-            highlight: false,
-        });
+        out.push(PreviewSegment { text: text[cursor..].to_string(), highlight: false });
     }
     out
 }

@@ -99,10 +99,7 @@ pub fn rtf(bytes: &[u8]) -> String {
             b'{' => {
                 flush_hex(&mut hex_buf, &mut text, codepage);
                 let parent = stack.last().map(|g| (g.skip, g.uc)).unwrap_or((false, 1));
-                stack.push(Group {
-                    skip: parent.0,
-                    uc: parent.1,
-                });
+                stack.push(Group { skip: parent.0, uc: parent.1 });
                 first_in_group = true;
                 i += 1;
             }
@@ -126,9 +123,7 @@ pub fn rtf(bytes: &[u8]) -> String {
                     if i + 2 < bytes.len() + 1 && i + 2 <= bytes.len() - 1 + 1 {
                         let hex = &bytes[i + 1..(i + 3).min(bytes.len())];
                         if hex.len() == 2 {
-                            if let Ok(v) =
-                                u8::from_str_radix(std::str::from_utf8(hex).unwrap_or("zz"), 16)
-                            {
+                            if let Ok(v) = u8::from_str_radix(std::str::from_utf8(hex).unwrap_or("zz"), 16) {
                                 if skip_after_unicode > 0 {
                                     skip_after_unicode -= 1;
                                 } else if !cur_skip {
@@ -181,9 +176,7 @@ pub fn rtf(bytes: &[u8]) -> String {
                     while i < bytes.len() && bytes[i].is_ascii_digit() {
                         i += 1;
                     }
-                    param = std::str::from_utf8(&bytes[pstart..i])
-                        .ok()
-                        .and_then(|s| s.parse().ok());
+                    param = std::str::from_utf8(&bytes[pstart..i]).ok().and_then(|s| s.parse().ok());
                 }
                 // A single space after a control word is part of it.
                 if i < bytes.len() && bytes[i] == b' ' {

@@ -82,9 +82,7 @@ pub fn classify(ext: &str) -> (FileCategory, Extractor) {
         "rtf" => (FileCategory::Document, Extractor::Rtf),
         "pages" | "wpd" | "wps" => (FileCategory::Document, Extractor::NameOnly),
         // Spreadsheets
-        "xlsx" | "xlsm" | "xltx" | "xltm" | "xlsb" => {
-            (FileCategory::Spreadsheet, Extractor::Spreadsheet)
-        }
+        "xlsx" | "xlsm" | "xltx" | "xltm" | "xlsb" => (FileCategory::Spreadsheet, Extractor::Spreadsheet),
         "xls" | "xlt" => (FileCategory::Spreadsheet, Extractor::Spreadsheet),
         "ods" | "ots" | "fods" => (FileCategory::Spreadsheet, Extractor::Spreadsheet),
         "csv" | "tsv" => (FileCategory::Spreadsheet, Extractor::PlainText),
@@ -99,31 +97,28 @@ pub fn classify(ext: &str) -> (FileCategory, Extractor) {
         "fb2" => (FileCategory::Ebook, Extractor::Xml),
         "mobi" | "azw" | "azw3" | "djvu" | "chm" => (FileCategory::Ebook, Extractor::NameOnly),
         // Web
-        "html" | "htm" | "xhtml" | "mht" | "mhtml" | "shtml" => {
-            (FileCategory::Web, Extractor::Html)
-        }
+        "html" | "htm" | "xhtml" | "mht" | "mhtml" | "shtml" => (FileCategory::Web, Extractor::Html),
         // Data / markup
         "xml" | "xsl" | "xslt" | "xsd" | "svg" | "plist" | "kml" | "gpx" | "opml" => {
             (FileCategory::Data, Extractor::Xml)
         }
-        "json" | "jsonl" | "ndjson" | "yaml" | "yml" | "toml" | "ini" | "cfg" | "conf"
-        | "properties" | "env" | "reg" => (FileCategory::Data, Extractor::PlainText),
+        "json" | "jsonl" | "ndjson" | "yaml" | "yml" | "toml" | "ini" | "cfg" | "conf" | "properties"
+        | "env" | "reg" => (FileCategory::Data, Extractor::PlainText),
         // Email
         "eml" | "msg" | "mbox" => (FileCategory::Email, Extractor::PlainText),
         // Plain text
-        "txt" | "text" | "md" | "markdown" | "rst" | "log" | "nfo" | "diz" | "srt" | "sub"
-        | "ass" | "vtt" | "tex" | "bib" | "adoc" | "asciidoc" | "org" | "1st" | "readme" | "me" => {
+        "txt" | "text" | "md" | "markdown" | "rst" | "log" | "nfo" | "diz" | "srt" | "sub" | "ass"
+        | "vtt" | "tex" | "bib" | "adoc" | "asciidoc" | "org" | "1st" | "readme" | "me" => {
             (FileCategory::Text, Extractor::PlainText)
         }
         // Source code
-        "rs" | "c" | "h" | "cpp" | "cc" | "cxx" | "hpp" | "hh" | "cs" | "java" | "kt" | "kts"
-        | "scala" | "go" | "py" | "pyw" | "rb" | "php" | "pl" | "pm" | "swift" | "m" | "mm"
-        | "js" | "mjs" | "cjs" | "ts" | "tsx" | "jsx" | "vue" | "svelte" | "css" | "scss"
-        | "sass" | "less" | "sql" | "sh" | "bash" | "zsh" | "fish" | "ps1" | "psm1" | "bat"
-        | "cmd" | "vbs" | "lua" | "r" | "jl" | "dart" | "ex" | "exs" | "erl" | "hs" | "clj"
-        | "lisp" | "el" | "vb" | "pas" | "dpr" | "asm" | "s" | "f" | "f90" | "for" | "groovy"
-        | "gradle" | "cmake" | "make" | "mk" | "dockerfile" | "tf" | "proto" | "graphql"
-        | "gql" | "1c" | "bsl" | "os" => (FileCategory::Code, Extractor::PlainText),
+        "rs" | "c" | "h" | "cpp" | "cc" | "cxx" | "hpp" | "hh" | "cs" | "java" | "kt" | "kts" | "scala"
+        | "go" | "py" | "pyw" | "rb" | "php" | "pl" | "pm" | "swift" | "m" | "mm" | "js" | "mjs" | "cjs"
+        | "ts" | "tsx" | "jsx" | "vue" | "svelte" | "css" | "scss" | "sass" | "less" | "sql" | "sh"
+        | "bash" | "zsh" | "fish" | "ps1" | "psm1" | "bat" | "cmd" | "vbs" | "lua" | "r" | "jl" | "dart"
+        | "ex" | "exs" | "erl" | "hs" | "clj" | "lisp" | "el" | "vb" | "pas" | "dpr" | "asm" | "s" | "f"
+        | "f90" | "for" | "groovy" | "gradle" | "cmake" | "make" | "mk" | "dockerfile" | "tf" | "proto"
+        | "graphql" | "gql" | "1c" | "bsl" | "os" => (FileCategory::Code, Extractor::PlainText),
         _ => (FileCategory::Other, Extractor::NameOnly),
     }
 }
@@ -131,12 +126,11 @@ pub fn classify(ext: &str) -> (FileCategory, Extractor) {
 /// Every extension QIDIR can extract text from (for the settings UI).
 pub fn supported_extensions() -> Vec<&'static str> {
     vec![
-        "docx", "docm", "dotx", "odt", "ott", "doc", "dot", "rtf", "xlsx", "xlsm", "xltx", "xlsb",
-        "xls", "ods", "ots", "csv", "tsv", "pptx", "pptm", "ppsx", "odp", "pdf", "epub", "fb2",
-        "html", "htm", "xhtml", "xml", "svg", "json", "yaml", "yml", "toml", "ini", "cfg", "conf",
-        "eml", "mbox", "txt", "md", "rst", "log", "srt", "tex", "rs", "c", "h", "cpp", "cs",
-        "java", "kt", "go", "py", "rb", "php", "js", "ts", "css", "sql", "sh", "ps1", "bat", "cmd",
-        "lua", "vb", "pas", "1c", "bsl",
+        "docx", "docm", "dotx", "odt", "ott", "doc", "dot", "rtf", "xlsx", "xlsm", "xltx", "xlsb", "xls",
+        "ods", "ots", "csv", "tsv", "pptx", "pptm", "ppsx", "odp", "pdf", "epub", "fb2", "html", "htm",
+        "xhtml", "xml", "svg", "json", "yaml", "yml", "toml", "ini", "cfg", "conf", "eml", "mbox", "txt",
+        "md", "rst", "log", "srt", "tex", "rs", "c", "h", "cpp", "cs", "java", "kt", "go", "py", "rb", "php",
+        "js", "ts", "css", "sql", "sh", "ps1", "bat", "cmd", "lua", "vb", "pas", "1c", "bsl",
     ]
 }
 
@@ -147,10 +141,7 @@ mod tests {
     #[test]
     fn classifies() {
         assert_eq!(classify("docx"), (FileCategory::Document, Extractor::Ooxml));
-        assert_eq!(
-            classify("xls"),
-            (FileCategory::Spreadsheet, Extractor::Spreadsheet)
-        );
+        assert_eq!(classify("xls"), (FileCategory::Spreadsheet, Extractor::Spreadsheet));
         assert_eq!(classify("exe"), (FileCategory::Other, Extractor::NameOnly));
         assert_eq!(classify("py").0, FileCategory::Code);
         assert_eq!(FileCategory::parse("pdf"), Some(FileCategory::Pdf));

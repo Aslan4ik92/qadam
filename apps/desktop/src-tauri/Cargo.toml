@@ -1,6 +1,6 @@
 [package]
 name = "qidir-desktop"
-description = "QIDIR desktop application"
+description = "QIDIR — modern local full-text file search for Windows (RU/KZ/EN)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -22,7 +22,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-window-state = "2"
-tauri-plugin-shell = "2"
+tauri-plugin-single-instance = "2"
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true

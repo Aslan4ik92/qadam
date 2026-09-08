@@ -25,25 +25,16 @@ pub fn list_drives() -> Vec<DriveInfo> {
             let root = format!("{}:\\", letter as char);
             let p = PathBuf::from(&root);
             if std::fs::metadata(&p).is_ok() {
-                out.push(DriveInfo {
-                    path: p,
-                    label: root,
-                });
+                out.push(DriveInfo { path: p, label: root });
             }
         }
         out
     }
     #[cfg(not(windows))]
     {
-        let mut out = vec![DriveInfo {
-            path: PathBuf::from("/"),
-            label: "/".to_string(),
-        }];
+        let mut out = vec![DriveInfo { path: PathBuf::from("/"), label: "/".to_string() }];
         if let Some(home) = directories::UserDirs::new().map(|u| u.home_dir().to_path_buf()) {
-            out.push(DriveInfo {
-                label: home.display().to_string(),
-                path: home,
-            });
+            out.push(DriveInfo { label: home.display().to_string(), path: home });
         }
         out
     }
@@ -75,10 +66,7 @@ pub fn is_hidden(path: &Path, meta: &std::fs::Metadata) -> bool {
 
 /// Lower-case file extension without the leading dot. Empty when absent.
 pub fn extension_of(path: &Path) -> String {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.to_lowercase())
-        .unwrap_or_default()
+    path.extension().and_then(|e| e.to_str()).map(|e| e.to_lowercase()).unwrap_or_default()
 }
 
 /// Canonical string form of a path used as the document identity in the index.
@@ -104,9 +92,7 @@ pub fn glob_form(path: &Path) -> String {
 
 /// Convert a `SystemTime` into UNIX seconds (0 for pre-epoch / errors).
 pub fn to_unix_secs(t: std::time::SystemTime) -> i64 {
-    t.duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
+    t.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0)
 }
 
 /// Format bytes for humans (`1.2 МБ` style is done in the UI; this is ASCII).
@@ -131,14 +117,8 @@ mod tests {
 
     #[test]
     fn strips_verbatim_prefix() {
-        assert_eq!(
-            path_key(Path::new(r"\\?\C:\Users\a.txt")),
-            r"C:\Users\a.txt"
-        );
-        assert_eq!(
-            path_key(Path::new(r"\\?\UNC\server\share\f")),
-            r"\\server\share\f"
-        );
+        assert_eq!(path_key(Path::new(r"\\?\C:\Users\a.txt")), r"C:\Users\a.txt");
+        assert_eq!(path_key(Path::new(r"\\?\UNC\server\share\f")), r"\\server\share\f");
         assert_eq!(path_key(Path::new("/home/u/f")), "/home/u/f");
     }
 

@@ -18,10 +18,8 @@ impl Watcher {
     /// Watch `roots` recursively and send affected paths to `tx` after a short
     /// quiet period (so a file being written is indexed once, when finished).
     pub fn start(roots: &[PathBuf], tx: chan::Sender<Vec<PathBuf>>) -> Result<Self> {
-        let mut debouncer = new_debouncer(
-            Duration::from_millis(1500),
-            None,
-            move |res: DebounceEventResult| match res {
+        let mut debouncer =
+            new_debouncer(Duration::from_millis(1500), None, move |res: DebounceEventResult| match res {
                 Ok(events) => {
                     let mut paths: Vec<PathBuf> = Vec::new();
                     for ev in events {
@@ -40,9 +38,8 @@ impl Watcher {
                         tracing::warn!(error = %e, "watch error");
                     }
                 }
-            },
-        )
-        .map_err(|e| Error::Other(format!("cannot create watcher: {e}")))?;
+            })
+            .map_err(|e| Error::Other(format!("cannot create watcher: {e}")))?;
 
         for root in roots {
             if root.exists() {
@@ -51,8 +48,6 @@ impl Watcher {
                 }
             }
         }
-        Ok(Self {
-            _debouncer: debouncer,
-        })
+        Ok(Self { _debouncer: debouncer })
     }
 }

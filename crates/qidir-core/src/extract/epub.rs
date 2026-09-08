@@ -14,10 +14,7 @@ pub fn epub(bytes: &[u8]) -> Result<String> {
     let mut ordered: Vec<String> = Vec::new();
     if let Some(opf_name) = names.iter().find(|n| n.ends_with(".opf")) {
         if let Some(opf) = read(&mut zip, opf_name) {
-            let base = opf_name
-                .rsplit_once('/')
-                .map(|(d, _)| format!("{d}/"))
-                .unwrap_or_default();
+            let base = opf_name.rsplit_once('/').map(|(d, _)| format!("{d}/")).unwrap_or_default();
             ordered = spine_order(&String::from_utf8_lossy(&opf))
                 .into_iter()
                 .map(|href| format!("{base}{href}"))
@@ -102,14 +99,8 @@ mod tests {
         let opf = r#"<package><manifest><item id="c2" href="ch2.xhtml" media-type="application/xhtml+xml"/><item id="c1" href="ch1.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/><itemref idref="c2"/></spine></package>"#;
         let bytes = build_zip(&[
             ("OEBPS/content.opf", opf),
-            (
-                "OEBPS/ch2.xhtml",
-                "<html><body><p>Вторая глава</p></body></html>",
-            ),
-            (
-                "OEBPS/ch1.xhtml",
-                "<html><body><p>Первая глава</p></body></html>",
-            ),
+            ("OEBPS/ch2.xhtml", "<html><body><p>Вторая глава</p></body></html>"),
+            ("OEBPS/ch1.xhtml", "<html><body><p>Первая глава</p></body></html>"),
         ]);
         assert_eq!(epub(&bytes).unwrap(), "Первая глава\n\nВторая глава");
     }

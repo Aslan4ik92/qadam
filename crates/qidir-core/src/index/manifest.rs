@@ -67,15 +67,11 @@ impl Manifest {
     pub fn get(&self, path: &str) -> Result<Option<Fingerprint>> {
         let tx = self.db.begin_read()?;
         let t = tx.open_table(FILES)?;
-        Ok(t.get(path)?
-            .and_then(|v| Fingerprint::from_bytes(v.value())))
+        Ok(t.get(path)?.and_then(|v| Fingerprint::from_bytes(v.value())))
     }
 
     /// Insert or update many fingerprints in one transaction.
-    pub fn put_many<'a>(
-        &self,
-        items: impl IntoIterator<Item = (&'a str, Fingerprint)>,
-    ) -> Result<()> {
+    pub fn put_many<'a>(&self, items: impl IntoIterator<Item = (&'a str, Fingerprint)>) -> Result<()> {
         let tx = self.db.begin_write()?;
         {
             let mut t = tx.open_table(FILES)?;
@@ -172,17 +168,8 @@ mod tests {
     fn roundtrip_and_prefix() {
         let dir = tempfile::tempdir().unwrap();
         let m = Manifest::open(&dir.path().join("manifest.redb")).unwrap();
-        let fp = Fingerprint {
-            modified: 1_700_000_000,
-            size: 42,
-            has_content: true,
-        };
-        m.put_many([
-            ("C:\\a\\1.txt", fp),
-            ("C:\\a\\2.txt", fp),
-            ("C:\\b\\3.txt", fp),
-        ])
-        .unwrap();
+        let fp = Fingerprint { modified: 1_700_000_000, size: 42, has_content: true };
+        m.put_many([("C:\\a\\1.txt", fp), ("C:\\a\\2.txt", fp), ("C:\\b\\3.txt", fp)]).unwrap();
         assert_eq!(m.get("C:\\a\\1.txt").unwrap(), Some(fp));
         assert_eq!(m.get("nope").unwrap(), None);
         assert_eq!(m.paths_with_prefix("C:\\a\\").unwrap().len(), 2);

@@ -149,8 +149,7 @@ pub(crate) fn build_globset(patterns: &[String]) -> Result<GlobSet> {
         } else if !pat.starts_with("**") && !pat.starts_with('/') && !pat.contains(":/") {
             pat = format!("**/{pat}");
         }
-        let g = Glob::new(&pat)
-            .map_err(|e| Error::Config(format!("bad exclude pattern `{p}`: {e}")))?;
+        let g = Glob::new(&pat).map_err(|e| Error::Config(format!("bad exclude pattern `{p}`: {e}")))?;
         b.add(g);
     }
     b.build().map_err(|e| Error::Config(e.to_string()))
@@ -208,22 +207,17 @@ impl IndexJob {
             let counters = self.counters.clone();
             let cancel = self.cancel.clone();
             let store_content = self.settings.store_content;
-            handles.push(
-                std::thread::Builder::new()
-                    .name("qidir-extract".into())
-                    .spawn(move || {
-                        while let Ok(item) = rx.recv() {
-                            if cancel.load(Ordering::Relaxed) {
-                                // Drain quickly.
-                                continue;
-                            }
-                            *counters.current.lock() = Some(item.key.clone());
-                            let fp =
-                                index_one(&writer, &fields, &item, &opts, store_content, &counters);
-                            let _ = fp_tx.send((item.key, fp));
-                        }
-                    })?,
-            );
+            handles.push(std::thread::Builder::new().name("qidir-extract".into()).spawn(move || {
+                while let Ok(item) = rx.recv() {
+                    if cancel.load(Ordering::Relaxed) {
+                        // Drain quickly.
+                        continue;
+                    }
+                    *counters.current.lock() = Some(item.key.clone());
+                    let fp = index_one(&writer, &fields, &item, &opts, store_content, &counters);
+                    let _ = fp_tx.send((item.key, fp));
+                }
+            })?);
         }
         drop(work_rx);
         drop(fp_tx);
@@ -232,9 +226,8 @@ impl IndexJob {
         let manifest = self.manifest.clone();
         let seen: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
         let seen_w = seen.clone();
-        let manifest_thread = std::thread::Builder::new()
-            .name("qidir-manifest".into())
-            .spawn(move || -> Result<()> {
+        let manifest_thread =
+            std::thread::Builder::new().name("qidir-manifest".into()).spawn(move || -> Result<()> {
                 let mut batch: Vec<(String, Fingerprint)> = Vec::with_capacity(512);
                 loop {
                     match fp_rx.recv_timeout(std::time::Duration::from_millis(500)) {
@@ -352,9 +345,7 @@ impl IndexJob {
         for h in handles {
             let _ = h.join();
         }
-        manifest_thread
-            .join()
-            .map_err(|_| Error::Other("manifest thread panicked".into()))??;
+        manifest_thread.join().map_err(|_| Error::Other("manifest thread panicked".into()))??;
 
         if let Err(Error::Cancelled) = crawl_result {
             self.commit()?;
@@ -370,13 +361,8 @@ impl IndexJob {
         self.counters.set_phase(IndexPhase::Cleaning);
         *self.counters.current.lock() = None;
         self.notify();
-        let enabled_roots: Vec<String> = self
-            .settings
-            .roots
-            .iter()
-            .filter(|r| r.enabled)
-            .map(|r| path_key(&r.path))
-            .collect();
+        let enabled_roots: Vec<String> =
+            self.settings.roots.iter().filter(|r| r.enabled).map(|r| path_key(&r.path)).collect();
         let seen = seen.lock();
         let mut stale = Vec::new();
         for known in self.manifest.all_paths()? {
@@ -393,17 +379,13 @@ impl IndexJob {
             }
         }
         if !stale.is_empty() {
-            self.manifest
-                .remove_many(stale.iter().map(|s| s.as_str()))?;
-            self.counters
-                .deleted
-                .fetch_add(stale.len() as u64, Ordering::Relaxed);
+            self.manifest.remove_many(stale.iter().map(|s| s.as_str()))?;
+            self.counters.deleted.fetch_add(stale.len() as u64, Ordering::Relaxed);
         }
 
         self.commit()?;
         self.counters.set_phase(IndexPhase::Done);
-        self.manifest
-            .set_meta("last_indexed", &chrono::Utc::now().timestamp().to_string())?;
+        self.manifest.set_meta("last_indexed", &chrono::Utc::now().timestamp().to_string())?;
         Ok(())
     }
 
@@ -428,11 +410,7 @@ pub(crate) fn is_under(path: &str, root: &str) -> bool {
         return false;
     }
     let (head, tail) = path.split_at(root_norm.len());
-    let same = if cfg!(windows) {
-        head.eq_ignore_ascii_case(root_norm)
-    } else {
-        head == root_norm
-    };
+    let same = if cfg!(windows) { head.eq_ignore_ascii_case(root_norm) } else { head == root_norm };
     same && (tail.is_empty() || tail.starts_with('\\') || tail.starts_with('/'))
 }
 
@@ -451,10 +429,7 @@ pub(crate) fn index_one(
     doc.add_text(fields.path_text, parent_for_text(&item.key));
     doc.add_text(
         fields.name,
-        item.path
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default(),
+        item.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
     );
     doc.add_text(fields.ext, &item.ext);
     doc.add_text(fields.category, category.as_str());
@@ -495,11 +470,7 @@ pub(crate) fn index_one(
     } else {
         counters.indexed.fetch_add(1, Ordering::Relaxed);
     }
-    Fingerprint {
-        modified: item.modified,
-        size: item.size,
-        has_content,
-    }
+    Fingerprint { modified: item.modified, size: item.size, has_content }
 }
 
 /// Folder part of a path for `path_text` indexing.
@@ -520,21 +491,15 @@ pub(crate) fn update_single(
     counters: &Counters,
 ) -> Result<bool> {
     let key = path_key(path);
-    let root = settings
-        .roots
-        .iter()
-        .filter(|r| r.enabled)
-        .map(|r| path_key(&r.path))
-        .find(|r| is_under(&key, r));
+    let root =
+        settings.roots.iter().filter(|r| r.enabled).map(|r| path_key(&r.path)).find(|r| is_under(&key, r));
     let Some(root) = root else {
         return Ok(false);
     };
     let excludes = build_globset(&settings.exclude_globs)?;
     match std::fs::metadata(path) {
         Ok(meta) if meta.is_file() => {
-            if excludes.is_match(glob_form(path))
-                || (!settings.index_hidden && is_hidden(path, &meta))
-            {
+            if excludes.is_match(glob_form(path)) || (!settings.index_hidden && is_hidden(path, &meta)) {
                 return Ok(false);
             }
             let ext = extension_of(path);
@@ -559,14 +524,7 @@ pub(crate) fn update_single(
                 extract_pdf: settings.extract_pdf,
                 ..ExtractOptions::default()
             };
-            let fp = index_one(
-                writer,
-                fields,
-                &item,
-                &opts,
-                settings.store_content,
-                counters,
-            );
+            let fp = index_one(writer, fields, &item, &opts, settings.store_content, counters);
             manifest.put_many([(key.as_str(), fp)])?;
             Ok(true)
         }
@@ -586,9 +544,7 @@ pub(crate) fn update_single(
             }
             if any {
                 manifest.remove_many(victims.iter().map(|s| s.as_str()))?;
-                counters
-                    .deleted
-                    .fetch_add(victims.len() as u64, Ordering::Relaxed);
+                counters.deleted.fetch_add(victims.len() as u64, Ordering::Relaxed);
             }
             Ok(any)
         }
@@ -610,13 +566,9 @@ mod tests {
 
     #[test]
     fn globset_forms() {
-        let gs = build_globset(&[
-            "node_modules".into(),
-            "*.tmp".into(),
-            "**/.git/**".into(),
-            "C:/Temp/**".into(),
-        ])
-        .unwrap();
+        let gs =
+            build_globset(&["node_modules".into(), "*.tmp".into(), "**/.git/**".into(), "C:/Temp/**".into()])
+                .unwrap();
         assert!(gs.is_match("C:/x/node_modules/a.js"));
         assert!(gs.is_match("C:/x/y/z.tmp"));
         assert!(gs.is_match("D:/repo/.git/HEAD"));

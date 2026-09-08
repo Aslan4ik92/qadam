@@ -35,17 +35,11 @@ mod tests {
             out.push_str(&format!("{} 0 obj\n{}\nendobj\n", i + 1, o));
         }
         let xref = out.len();
-        out.push_str(&format!(
-            "xref\n0 {}\n0000000000 65535 f \n",
-            offsets.len() + 1
-        ));
+        out.push_str(&format!("xref\n0 {}\n0000000000 65535 f \n", offsets.len() + 1));
         for off in offsets {
             out.push_str(&format!("{off:010} 00000 n \n"));
         }
-        out.push_str(&format!(
-            "trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{}\n%%EOF\n",
-            6, xref
-        ));
+        out.push_str(&format!("trailer\n<< /Size {} /Root 1 0 R >>\nstartxref\n{}\n%%EOF\n", 6, xref));
         out.into_bytes()
     }
 

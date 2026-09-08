@@ -49,11 +49,7 @@ pub fn xml_text<R: BufRead>(reader: R, block_tags: &[&str], skip_tags: &[&str]) 
                 if matches!(name.as_str(), "br" | "tab" | "cr" | "line-break" | "s") {
                     push_sep(
                         &mut out,
-                        if name == "br" || name == "cr" || name == "line-break" {
-                            '\n'
-                        } else {
-                            ' '
-                        },
+                        if name == "br" || name == "cr" || name == "line-break" { '\n' } else { ' ' },
                     );
                 } else if block_tags.iter().any(|t| t.eq_ignore_ascii_case(&name)) {
                     push_sep(&mut out, '\n');

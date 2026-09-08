@@ -47,59 +47,45 @@ fn fixture() -> Fixture {
     let docs = tempfile::tempdir().unwrap();
     let root = docs.path().to_path_buf();
 
-    write(&root.join("contracts/договор_аренды.txt"), "Договор аренды нежилого помещения.\nАрендатор обязуется вносить арендную плату ежемесячно.".as_bytes());
+    write(
+        &root.join("contracts/договор_аренды.txt"),
+        "Договор аренды нежилого помещения.\nАрендатор обязуется вносить арендную плату ежемесячно."
+            .as_bytes(),
+    );
     write(
         &root.join("contracts/report.md"),
         b"# Quarterly report\n\nSearching documents quickly is the goal of this project.",
     );
     write(
         &root.join("kz/kitap.txt"),
-        "Кітаптарымызда Қазақстан тарихы туралы көп мәлімет бар. Балалар мектепке барады."
-            .as_bytes(),
+        "Кітаптарымызда Қазақстан тарихы туралы көп мәлімет бар. Балалар мектепке барады.".as_bytes(),
     );
     let (cp1251, _, _) =
         encoding_rs::WINDOWS_1251.encode("Старый отчёт о продажах за 1998 год. Продажи выросли.");
     write(&root.join("legacy/otchet_1998.txt"), &cp1251);
     write(
         &root.join("office/Протокол совещания.docx"),
-        &docx(&[
-            "Протокол совещания №7",
-            "Обсуждали договор аренды и бюджет.",
-        ]),
+        &docx(&["Протокол совещания №7", "Обсуждали договор аренды и бюджет."]),
     );
     write(
         &root.join("node_modules/pkg/index.js"),
         "договор аренды inside node_modules must be excluded".as_bytes(),
     );
-    write(
-        &root.join("bin/tool.exe"),
-        b"MZ\0\0\0\0\0\0\x01\x02\x03\0\0\0\0\0",
-    );
+    write(&root.join("bin/tool.exe"), b"MZ\0\0\0\0\0\0\x01\x02\x03\0\0\0\0\0");
     write(&root.join("notes/todo.txt"), b"buy milk\ncall mom\n");
 
     let mut settings = Settings::default();
-    settings.roots.push(IndexRoot {
-        path: root.clone(),
-        enabled: true,
-    });
+    settings.roots.push(IndexRoot { path: root.clone(), enabled: true });
     settings.watch_changes = false;
     settings.worker_threads = 2;
     settings.writer_memory_mb = 64;
     let paths = AppPaths::in_dir(data.path());
     let engine = Engine::open_with_settings(paths, settings).unwrap();
-    Fixture {
-        _data: data,
-        docs,
-        engine,
-    }
+    Fixture { _data: data, docs, engine }
 }
 
 fn req(query: &str) -> SearchRequest {
-    SearchRequest {
-        query: query.to_string(),
-        limit: 50,
-        ..SearchRequest::default()
-    }
+    SearchRequest { query: query.to_string(), limit: 50, ..SearchRequest::default() }
 }
 
 #[test]
@@ -118,38 +104,16 @@ fn full_cycle() {
     assert!(paths.iter().any(|p| p.ends_with("договор_аренды.txt")));
     assert!(paths.iter().any(|p| p.ends_with("Протокол совещания.docx")));
     assert!(!paths.iter().any(|p| p.contains("node_modules")));
-    let hit = r
-        .hits
-        .iter()
-        .find(|h| h.path.ends_with("договор_аренды.txt"))
-        .unwrap();
-    assert!(
-        hit.snippet.contains("<mark>Договор</mark>"),
-        "{}",
-        hit.snippet
-    );
-    assert!(
-        hit.snippet.contains("<mark>аренды</mark>"),
-        "{}",
-        hit.snippet
-    );
+    let hit = r.hits.iter().find(|h| h.path.ends_with("договор_аренды.txt")).unwrap();
+    assert!(hit.snippet.contains("<mark>Договор</mark>"), "{}", hit.snippet);
+    assert!(hit.snippet.contains("<mark>аренды</mark>"), "{}", hit.snippet);
     assert_eq!(hit.category, FileCategory::Text);
     assert_eq!(hit.encoding.as_deref(), Some("UTF-8"));
 
     // --- Exact mode does not match other forms ---
-    let r = e
-        .search(&SearchRequest {
-            mode: SearchMode::Exact,
-            ..req("договоры")
-        })
-        .unwrap();
+    let r = e.search(&SearchRequest { mode: SearchMode::Exact, ..req("договоры") }).unwrap();
     assert_eq!(r.total, 0);
-    let r = e
-        .search(&SearchRequest {
-            mode: SearchMode::Exact,
-            ..req("договор")
-        })
-        .unwrap();
+    let r = e.search(&SearchRequest { mode: SearchMode::Exact, ..req("договор") }).unwrap();
     assert_eq!(r.total, 2);
 
     // --- Kazakh morphology + Russian keyboard folding ---
@@ -185,102 +149,42 @@ fn full_cycle() {
     assert_eq!(e.search(&req("tool")).unwrap().total, 1);
 
     // --- Structured filters + facets ---
-    let r = e
-        .search(&SearchRequest {
-            categories: vec![FileCategory::Document],
-            ..req("")
-        })
-        .unwrap();
+    let r = e.search(&SearchRequest { categories: vec![FileCategory::Document], ..req("") }).unwrap();
     assert_eq!(r.total, 1);
-    let r = e
-        .search(&SearchRequest {
-            extensions: vec!["txt".into()],
-            ..req("")
-        })
-        .unwrap();
+    let r = e.search(&SearchRequest { extensions: vec!["txt".into()], ..req("") }).unwrap();
     assert_eq!(r.total, 4);
     let r = e.search(&req("")).unwrap();
     assert_eq!(r.total, 7);
-    let txt = r
-        .facets
-        .extensions
-        .iter()
-        .find(|f| f.value == "txt")
-        .unwrap();
+    let txt = r.facets.extensions.iter().find(|f| f.value == "txt").unwrap();
     assert_eq!(txt.count, 4);
-    assert!(r
-        .facets
-        .categories
-        .iter()
-        .any(|f| f.value == "document" && f.count == 1));
+    assert!(r.facets.categories.iter().any(|f| f.value == "document" && f.count == 1));
     assert_eq!(r.facets.roots.len(), 1);
-    let r = e
-        .search(&SearchRequest {
-            with_content_only: true,
-            ..req("")
-        })
-        .unwrap();
+    let r = e.search(&SearchRequest { with_content_only: true, ..req("") }).unwrap();
     assert_eq!(r.total, 6);
-    let r = e
-        .search(&SearchRequest {
-            size_min: Some(200),
-            ..req("")
-        })
-        .unwrap();
+    let r = e.search(&SearchRequest { size_min: Some(200), ..req("") }).unwrap();
     assert!(r.total >= 1 && r.total < 7);
 
     // --- Sorting ---
-    let r = e
-        .search(&SearchRequest {
-            sort: SortOrder::NameAsc,
-            ..req("")
-        })
-        .unwrap();
+    let r = e.search(&SearchRequest { sort: SortOrder::NameAsc, ..req("") }).unwrap();
     let names: Vec<String> = r.hits.iter().map(|h| h.name.to_lowercase()).collect();
     let mut sorted = names.clone();
     sorted.sort();
     assert_eq!(names, sorted);
-    let r = e
-        .search(&SearchRequest {
-            sort: SortOrder::SizeDesc,
-            ..req("")
-        })
-        .unwrap();
+    let r = e.search(&SearchRequest { sort: SortOrder::SizeDesc, ..req("") }).unwrap();
     assert!(r.hits.windows(2).all(|w| w[0].size >= w[1].size));
 
     // --- Paging ---
-    let r = e
-        .search(&SearchRequest {
-            limit: 3,
-            offset: 0,
-            sort: SortOrder::NameAsc,
-            ..req("")
-        })
-        .unwrap();
+    let r = e.search(&SearchRequest { limit: 3, offset: 0, sort: SortOrder::NameAsc, ..req("") }).unwrap();
     assert_eq!(r.hits.len(), 3);
-    let r2 = e
-        .search(&SearchRequest {
-            limit: 3,
-            offset: 3,
-            sort: SortOrder::NameAsc,
-            ..req("")
-        })
-        .unwrap();
+    let r2 = e.search(&SearchRequest { limit: 3, offset: 3, sort: SortOrder::NameAsc, ..req("") }).unwrap();
     assert_eq!(r2.hits.len(), 3);
     assert_ne!(r.hits[0].path, r2.hits[0].path);
 
     // --- Preview ---
-    let p = e
-        .preview(&hit.path, "договоры аренда", SearchMode::Smart)
-        .unwrap();
+    let p = e.preview(&hit.path, "договоры аренда", SearchMode::Smart).unwrap();
     assert_eq!(p.source, "index");
     assert_eq!(p.total_matches, 2, "{p:?}"); // `арендную` is an adjective: different stem
-    let highlighted: Vec<&str> = p
-        .segments
-        .iter()
-        .filter(|s| s.highlight)
-        .map(|s| s.text.as_str())
-        .collect();
+    let highlighted: Vec<&str> = p.segments.iter().filter(|s| s.highlight).map(|s| s.text.as_str()).collect();
     assert_eq!(highlighted, vec!["Договор", "аренды"]);
     let p = e.preview(&hit.path, "арендная", SearchMode::Smart).unwrap();
     assert_eq!(p.total_matches, 1);
@@ -302,14 +206,8 @@ fn full_cycle() {
     // --- Modify, add, delete → incremental ---
     let root = f.docs.path().to_path_buf();
     std::thread::sleep(std::time::Duration::from_millis(1100)); // mtime granularity
-    write(
-        &root.join("notes/todo.txt"),
-        b"buy milk\ncall mom\nsign the lease agreement",
-    );
-    write(
-        &root.join("notes/new.txt"),
-        "Совершенно новый документ".as_bytes(),
-    );
+    write(&root.join("notes/todo.txt"), b"buy milk\ncall mom\nsign the lease agreement");
+    write(&root.join("notes/new.txt"), "Совершенно новый документ".as_bytes());
     std::fs::remove_file(root.join("contracts/report.md")).unwrap();
     let s3 = e.index_blocking(false).unwrap();
     assert_eq!(s3.indexed, 2, "{s3:?}");
@@ -368,10 +266,7 @@ fn settings_persist_and_reopen() {
     let paths = AppPaths::in_dir(data.path());
     {
         let mut s = Settings::default();
-        s.roots.push(IndexRoot {
-            path: docs.path().to_path_buf(),
-            enabled: true,
-        });
+        s.roots.push(IndexRoot { path: docs.path().to_path_buf(), enabled: true });
         s.watch_changes = false;
         let e = Engine::open_with_settings(paths.clone(), s.clone()).unwrap();
         e.update_settings(s).unwrap();

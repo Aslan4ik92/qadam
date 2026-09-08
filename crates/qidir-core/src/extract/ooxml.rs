@@ -21,8 +21,7 @@ fn read_entry(zip: &mut ZipArchive<Cursor<&[u8]>>, name: &str) -> Option<Vec<u8>
 }
 
 fn open(bytes: &[u8]) -> Result<ZipArchive<Cursor<&[u8]>>> {
-    ZipArchive::new(Cursor::new(bytes))
-        .map_err(|e| Error::Extract(format!("not a zip container: {e}")))
+    ZipArchive::new(Cursor::new(bytes)).map_err(|e| Error::Extract(format!("not a zip container: {e}")))
 }
 
 /// Extract text of a DOCX file: main document, headers/footers, footnotes,
@@ -133,10 +132,7 @@ mod tests {
             ("word/header1.xml", hdr),
         ]);
         let text = docx(&bytes).unwrap();
-        assert!(
-            text.starts_with("Договор №12\nҚазақстан Республикасы"),
-            "{text}"
-        );
+        assert!(text.starts_with("Договор №12\nҚазақстан Республикасы"), "{text}");
         assert!(text.contains("Колонтитул"));
         assert!(!text.contains("PAGE"));
     }

@@ -25,10 +25,7 @@ pub struct Matcher {
 
 impl Matcher {
     pub fn is_empty(&self) -> bool {
-        self.terms.is_empty()
-            && self.prefixes.is_empty()
-            && self.regexes.is_empty()
-            && self.fuzzy.is_empty()
+        self.terms.is_empty() && self.prefixes.is_empty() && self.regexes.is_empty() && self.fuzzy.is_empty()
     }
 
     fn needs_exact(&self) -> bool {
@@ -41,19 +38,13 @@ impl Matcher {
         if self.terms.contains(mode_term) {
             return true;
         }
-        if self
-            .prefixes
-            .iter()
-            .any(|p| exact_term.starts_with(p.as_str()))
-        {
+        if self.prefixes.iter().any(|p| exact_term.starts_with(p.as_str())) {
             return true;
         }
         if self.regexes.iter().any(|r| r.is_match(exact_term)) {
             return true;
         }
-        self.fuzzy
-            .iter()
-            .any(|(t, d)| levenshtein_within(t, exact_term, *d as usize))
+        self.fuzzy.iter().any(|(t, d)| levenshtein_within(t, exact_term, *d as usize))
     }
 }
 
@@ -120,18 +111,14 @@ const SCAN_CHUNK: usize = 64 * 1024;
 /// match is used, so snippets stay cheap even for multi-megabyte texts.
 pub fn snippet(text: &str, matcher: &Matcher, mode: AnalysisMode, max_chars: usize) -> Snippet {
     if matcher.is_empty() || text.is_empty() {
-        return Snippet {
-            html: leading_snippet(text, max_chars),
-            matches: 0,
-        };
+        return Snippet { html: leading_snippet(text, max_chars), matches: 0 };
     }
     let mut start = 0usize;
     while start < text.len() {
         let mut end = (start + SCAN_CHUNK).min(text.len());
         // Extend to a char boundary and past the current word.
         while end < text.len()
-            && (!text.is_char_boundary(end)
-                || text[end..].starts_with(|c: char| c.is_alphanumeric()))
+            && (!text.is_char_boundary(end) || text[end..].starts_with(|c: char| c.is_alphanumeric()))
         {
             end += 1;
         }
@@ -143,10 +130,7 @@ pub fn snippet(text: &str, matcher: &Matcher, mode: AnalysisMode, max_chars: usi
         }
         start = end;
     }
-    Snippet {
-        html: leading_snippet(text, max_chars),
-        matches: 0,
-    }
+    Snippet { html: leading_snippet(text, max_chars), matches: 0 }
 }
 
 /// Snippet of the beginning of the text without highlighting.
@@ -171,10 +155,7 @@ fn render_window(text: &str, matches: &[Range<usize>], max_chars: usize) -> (Str
     let mut best_count = 0;
     for i in 0..matches.len() {
         let from = matches[i].start;
-        let count = matches[i..]
-            .iter()
-            .take_while(|m| m.end <= from + window_bytes)
-            .count();
+        let count = matches[i..].iter().take_while(|m| m.end <= from + window_bytes).count();
         if count > best_count {
             best_count = count;
             best_i = i;

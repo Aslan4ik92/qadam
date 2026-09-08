@@ -136,13 +136,7 @@ pub fn analyze(text: &str, mode: AnalysisMode) -> Vec<AnalyzedToken> {
                 continue;
             }
             any = true;
-            out.push(AnalyzedToken {
-                term,
-                offset_from: from,
-                offset_to: to,
-                position: *position,
-                lang,
-            });
+            out.push(AnalyzedToken { term, offset_from: from, offset_to: to, position: *position, lang });
         }
         if !any {
             *position += 1;
@@ -214,10 +208,7 @@ impl Tokenizer for QidirTokenizer {
                 position_length: 1,
             })
             .collect();
-        VecTokenStream {
-            tokens,
-            index: usize::MAX,
-        }
+        VecTokenStream { tokens, index: usize::MAX }
     }
 }
 
@@ -285,10 +276,7 @@ mod tests {
     #[test]
     fn kazakh_stemming_and_folding() {
         // "in our books" → folded stem of "кітап" plus the folded exact form
-        assert_eq!(
-            terms("кітаптарымызда", AnalysisMode::Stem),
-            vec!["китап", "китаптарымызда"]
-        );
+        assert_eq!(terms("кітаптарымызда", AnalysisMode::Stem), vec!["китап", "китаптарымызда"]);
         assert!(share_a_term(
             &grouped("кітап", AnalysisMode::Stem)[0],
             &grouped("кітаптарымызда", AnalysisMode::Stem)[0]
@@ -305,10 +293,7 @@ mod tests {
 
     #[test]
     fn exact_mode_does_not_stem_but_folds() {
-        assert_eq!(
-            terms("Ёлки яблоки", AnalysisMode::Exact),
-            vec!["елки", "яблоки"]
-        );
+        assert_eq!(terms("Ёлки яблоки", AnalysisMode::Exact), vec!["елки", "яблоки"]);
         assert_eq!(terms("Қазақстан", AnalysisMode::Exact), vec!["казакстан"]);
     }
 
@@ -316,14 +301,8 @@ mod tests {
     fn offsets_and_positions() {
         let toks = analyze("Привет, мир! 2024", AnalysisMode::Exact);
         assert_eq!(toks.len(), 3);
-        assert_eq!(
-            &"Привет, мир! 2024"[toks[0].offset_from..toks[0].offset_to],
-            "Привет"
-        );
-        assert_eq!(
-            &"Привет, мир! 2024"[toks[1].offset_from..toks[1].offset_to],
-            "мир"
-        );
+        assert_eq!(&"Привет, мир! 2024"[toks[0].offset_from..toks[0].offset_to], "Привет");
+        assert_eq!(&"Привет, мир! 2024"[toks[1].offset_from..toks[1].offset_to], "мир");
         assert_eq!(toks[2].term, "2024");
         assert_eq!(toks[2].position, 2);
     }
