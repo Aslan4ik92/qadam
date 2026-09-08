@@ -126,6 +126,7 @@ mod tests {
     fn strips_verbatim_prefix() {
         assert_eq!(path_key(Path::new(r"\\?\C:\Users\a.txt")), r"C:\Users\a.txt");
         assert_eq!(path_key(Path::new(r"\\?\UNC\server\share\f")), r"\\server\share\f");
+        #[cfg(not(windows))]
         assert_eq!(path_key(Path::new("/home/u/f")), "/home/u/f");
     }
 
