@@ -54,6 +54,41 @@ fn init_logging(paths: &AppPaths, console: bool) -> Option<tracing_appender::non
     guard
 }
 
+/// Serve the UI to the default browser instead of a native window.
+fn run_browser_mode(paths: AppPaths) {
+    let engine = match Engine::open(paths.clone()) {
+        Ok(e) => e,
+        Err(e) => startup::fatal(&format!(
+            "Не удалось открыть индекс QIDIR / cannot open the QIDIR index:\n\n{e}\n\nПапка данных / data folder: {}",
+            paths.data_dir.display()
+        )),
+    };
+    let settings = engine.settings();
+    if settings.watch_changes {
+        if let Err(e) = engine.start_watching() {
+            tracing::warn!(error = %e, "cannot start watcher");
+        }
+    }
+    if settings.reindex_on_start && settings.roots.iter().any(|r| r.enabled) {
+        let _ = engine.start_indexing(false);
+    }
+    let port: u16 = std::env::var("QIDIR_PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(0);
+    let cfg = qidir_server::ServerConfig { port, open_browser: true, ..Default::default() };
+    match qidir_server::serve(engine.clone(), paths, cfg) {
+        Ok(running) => {
+            tracing::info!(url = %running.url, "browser mode ready");
+            running.wait();
+        }
+        Err(e) => startup::fatal(&format!(
+            "Не удалось запустить локальный сервер QIDIR / cannot start the local server:\n\n{e}"
+        )),
+    }
+    engine.cancel_indexing();
+    engine.stop_watching();
+    engine.wait_idle();
+    tracing::info!("QIDIR (browser mode) exiting");
+}
+
 /// Emits progress events while indexing runs, plus one `index-finished`
 /// event when it stops.
 fn spawn_progress_ticker(app: tauri::AppHandle, engine: Arc<Engine>, stop: Arc<AtomicBool>) {
@@ -89,7 +124,17 @@ pub fn run() {
     let _log_guard = init_logging(&paths, console);
     startup::install_panic_hook(&paths.log_dir);
     tracing::info!(version = qidir_core::VERSION, data_dir = %paths.data_dir.display(), "QIDIR starting");
-    startup::check_webview_runtime();
+
+    // Browser mode: no WebView2 needed. Chosen explicitly (`--browser`) or
+    // automatically when the WebView2 runtime is missing.
+    let forced_browser = std::env::args().any(|a| a == "--browser");
+    if forced_browser || !startup::webview_runtime_available() {
+        if !forced_browser {
+            startup::notify_browser_fallback();
+        }
+        run_browser_mode(paths);
+        return;
+    }
 
     let stop_ticker = Arc::new(AtomicBool::new(false));
     let stop_ticker_setup = stop_ticker.clone();

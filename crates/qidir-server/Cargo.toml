@@ -1,0 +1,24 @@
+[package]
+name = "qidir-server"
+description = "Embedded local HTTP server that serves the QIDIR UI to any web browser (no WebView2 required)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+qidir-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+parking_lot.workspace = true
+tiny_http = "0.12"
+include_dir = "0.7"
+
+[target.'cfg(windows)'.dependencies]
+rfd = { version = "0.17", default-features = false }
+
+[dev-dependencies]
+tempfile.workspace = true

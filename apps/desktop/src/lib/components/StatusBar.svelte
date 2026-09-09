@@ -4,7 +4,7 @@
   import { settings } from '../stores/settings.svelte';
   import { ui } from '../stores/ui.svelte';
   import * as api from '../api/backend';
-  import { errorMessage } from '../api/backend';
+  import { errorMessage, isBrowserMode, shutdownServer } from '../api/backend';
   import { formatNumber, formatRelative, formatSize } from '../utils/format';
   import { ellipsizePath } from '../utils/path';
   import Icon from './Icon.svelte';
@@ -35,6 +35,15 @@
 
   async function openLogs() {
     try { await api.openLogsFolder(); } catch (e) { ui.error(t('toast.error'), errorMessage(e)); }
+  }
+
+  let quitting = $state(false);
+  async function quit() {
+    if (!(await ui.ask(t('status.quit'), t('status.quitConfirm'), t('status.quit'), true))) return;
+    quitting = true;
+    await shutdownServer();
+    document.title = 'QIDIR';
+    document.body.innerHTML = `<div style="font: 15px system-ui; padding: 48px; text-align: center">${t('status.quitDone')}</div>`;
   }
 </script>
 
@@ -67,6 +76,10 @@
     {/if}
   </div>
   <div class="right">
+    {#if isBrowserMode}
+      <span class="faint" title={t('status.browserModeHint')}>{t('status.browserMode')}</span>
+      <button class="link" onclick={quit} disabled={quitting}>{t('status.quit')}</button>
+    {/if}
     {#if info}<span class="faint">{t('status.version')} {info.version}</span>{/if}
     <button class="link" onclick={openLogs}><Icon name="logs" size={13} /> {t('status.logs')}</button>
   </div>

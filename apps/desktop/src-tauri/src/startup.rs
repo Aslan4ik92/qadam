@@ -80,36 +80,46 @@ pub fn install_panic_hook(log_dir: &Path) {
     }));
 }
 
-/// Make sure the WebView2 runtime is present (Windows only). Without it the
-/// window cannot be created at all; explain what to do instead of failing.
-pub fn check_webview_runtime() {
+/// Is a webview runtime (WebView2 on Windows) available?
+pub fn webview_runtime_available() -> bool {
     match tauri::webview_version() {
-        Ok(v) => tracing::info!(webview = %v, "webview runtime detected"),
+        Ok(v) => {
+            tracing::info!(webview = %v, "webview runtime detected");
+            true
+        }
         Err(e) => {
-            tracing::error!(error = %e, "webview runtime not available");
-            if cfg!(windows) {
-                let url = "https://developer.microsoft.com/microsoft-edge/webview2/#download";
-                let msg = format!(
-                    "Для работы QIDIR нужна среда выполнения Microsoft Edge WebView2, а она не найдена на этом компьютере.\n\n\
-                     Сейчас откроется страница загрузки: установите «Evergreen Bootstrapper» (около 2 МБ) и запустите QIDIR снова.\n\n\
-                     QIDIR needs the Microsoft Edge WebView2 Runtime, which was not found. The download page will open: install the Evergreen Bootstrapper and start QIDIR again.\n\n\
-                     {url}\n\nТехническая информация / details: {e}"
-                );
-                show_error("QIDIR — требуется WebView2", &msg);
-                open_url(url);
-                std::process::exit(2);
-            }
+            tracing::warn!(error = %e, "webview runtime not available; falling back to browser mode");
+            false
         }
     }
 }
 
-fn open_url(url: &str) {
+/// Tell the user that the UI opens in the browser because WebView2 is absent.
+pub fn notify_browser_fallback() {
     #[cfg(windows)]
     {
-        let _ = std::process::Command::new("rundll32.exe").args(["url.dll,FileProtocolHandler", url]).spawn();
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            MessageBoxW, MB_ICONINFORMATION, MB_OK, MB_SETFOREGROUND,
+        };
+        let to_wide = |s: &str| -> Vec<u16> { s.encode_utf16().chain(std::iter::once(0)).collect() };
+        let title = to_wide("QIDIR");
+        let msg = to_wide(
+            "Среда Microsoft Edge WebView2 на этом компьютере не найдена, поэтому QIDIR откроется в вашем браузере. \
+             Ничего устанавливать не нужно.\n\nQIDIR будет работать, пока открыта вкладка; закрыть программу можно кнопкой «Завершить QIDIR» в строке состояния.\n\n\
+             WebView2 runtime not found: QIDIR opens in your default browser instead. Nothing to install.",
+        );
+        // SAFETY: valid NUL-terminated UTF-16 buffers, null owner window.
+        unsafe {
+            MessageBoxW(
+                std::ptr::null_mut(),
+                msg.as_ptr(),
+                title.as_ptr(),
+                MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND,
+            );
+        }
     }
     #[cfg(not(windows))]
     {
-        let _ = std::process::Command::new("xdg-open").arg(url).spawn();
+        eprintln!("webview runtime not found; opening QIDIR in the default browser");
     }
 }

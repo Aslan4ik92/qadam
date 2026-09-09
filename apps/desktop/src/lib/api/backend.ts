@@ -28,6 +28,13 @@ export interface Backend {
 
 export const isTauri: boolean = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
+/** Token injected by the embedded HTTP server (browser mode, no WebView2). */
+const browserToken: string | null =
+  typeof window !== 'undefined' && typeof (window as { __QIDIR_TOKEN__?: unknown }).__QIDIR_TOKEN__ === 'string'
+    ? (window as unknown as { __QIDIR_TOKEN__: string }).__QIDIR_TOKEN__
+    : null;
+export const isBrowserMode: boolean = !isTauri && browserToken !== null;
+
 /** Normalizes a rejected command into a plain Error with a readable message. */
 export function errorMessage(e: unknown): string {
   if (typeof e === 'string') return e;
@@ -86,6 +93,96 @@ function createTauriBackend(): Backend {
   };
 }
 
+/** Transport for the embedded local server: same command names, JSON over POST. */
+function createHttpBackend(token: string): Backend {
+  async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+    let res: Response;
+    try {
+      res = await fetch(`/api/${cmd}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-QIDIR-Token': token },
+        body: JSON.stringify(args ?? {})
+      });
+    } catch (e) {
+      throw new Error(`QIDIR не отвечает / QIDIR is not responding: ${errorMessage(e)}`);
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as { ok: boolean; result?: T; error?: string };
+    if (!data.ok) throw new Error(data.error ?? 'unknown error');
+    return data.result as T;
+  }
+
+  // Progress events are polled while someone listens; the polling doubles
+  // as the heartbeat that keeps the server alive.
+  const progressListeners = new Set<(p: IndexProgress) => void>();
+  const finishedListeners = new Set<(p: IndexProgress) => void>();
+  let timer: ReturnType<typeof setInterval> | null = null;
+  let wasRunning = false;
+  function ensurePolling() {
+    if (timer) return;
+    timer = setInterval(async () => {
+      try {
+        const p = await call<IndexProgress>('get_progress');
+        if (p.running) {
+          progressListeners.forEach((cb) => cb(p));
+          wasRunning = true;
+        } else if (wasRunning) {
+          wasRunning = false;
+          progressListeners.forEach((cb) => cb(p));
+          finishedListeners.forEach((cb) => cb(p));
+        }
+      } catch { /* server gone; the next user action will surface the error */ }
+    }, 700);
+  }
+  function subscribe(set: Set<(p: IndexProgress) => void>, cb: (p: IndexProgress) => void): () => void {
+    set.add(cb);
+    ensurePolling();
+    return () => { set.delete(cb); };
+  }
+  // Heartbeat even without listeners.
+  setInterval(() => { call('ping').catch(() => undefined); }, 20_000);
+  window.addEventListener('beforeunload', () => {
+    // Best effort: tell the server the tab is gone so it can exit sooner.
+    try { navigator.sendBeacon?.('/api/ping', '{}'); } catch { /* ignore */ }
+  });
+
+  return {
+    getSettings: () => call<Settings>('get_settings'),
+    saveSettings: (settings) => call<Settings>('save_settings', { settings }),
+    listDrives: () => call<DriveInfo[]>('list_drives'),
+    pickFolders: () => call<string[]>('pick_folders'),
+    startIndexing: (full) => call<void>('start_indexing', { full }),
+    cancelIndexing: () => call<void>('cancel_indexing'),
+    getProgress: () => call<IndexProgress>('get_progress'),
+    search: (request) => call<SearchResponse>('search', { request }),
+    getPreview: (path, query, mode) => call<Preview>('get_preview', { path, query, mode }),
+    getStats: () => call<IndexStats>('get_stats'),
+    clearIndex: () => call<void>('clear_index'),
+    openFile: (path) => call<void>('open_file', { path }),
+    revealInExplorer: (path) => call<void>('reveal_in_explorer', { path }),
+    openWith: (path) => call<void>('open_with', { path }),
+    copyText: async (text) => {
+      if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); return; }
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } finally { ta.remove(); }
+    },
+    analyzeText: (text, mode) => call<string[]>('analyze_text', { text, mode }),
+    getAppInfo: () => call<AppInfo>('get_app_info'),
+    openLogsFolder: () => call<void>('open_logs_folder'),
+    openDataFolder: () => call<void>('open_data_folder'),
+    onIndexProgress: (cb) => subscribe(progressListeners, cb),
+    onIndexFinished: (cb) => subscribe(finishedListeners, cb)
+  };
+}
+
+/** Browser mode only: ask the local server to exit. */
+export async function shutdownServer(): Promise<void> {
+  if (!browserToken) return;
+  await fetch('/api/shutdown', { method: 'POST', headers: { 'X-QIDIR-Token': browserToken }, body: '{}' }).catch(() => undefined);
+}
+
 let backendInstance: Backend | null = null;
 let mockPromise: Promise<Backend> | null = null;
 
@@ -93,6 +190,10 @@ async function resolveBackend(): Promise<Backend> {
   if (backendInstance) return backendInstance;
   if (isTauri) {
     backendInstance = createTauriBackend();
+    return backendInstance;
+  }
+  if (browserToken) {
+    backendInstance = createHttpBackend(browserToken);
     return backendInstance;
   }
   if (!mockPromise) {

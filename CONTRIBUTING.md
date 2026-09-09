@@ -6,7 +6,7 @@
 
 ```bash
 cargo fmt --all
-cargo clippy -p qidir-core -p qidir-cli --all-targets -- -D warnings
+cargo clippy -p qidir-core -p qidir-cli -p qidir-server --all-targets -- -D warnings
 cargo test --workspace --exclude qidir-desktop
 cd apps/desktop && npm run check && npm run test && npm run build
 ```

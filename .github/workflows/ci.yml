@@ -32,9 +32,9 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
-        run: cargo clippy -p qidir-core -p qidir-cli --all-targets -- -D warnings
+        run: cargo clippy -p qidir-core -p qidir-cli -p qidir-server --all-targets -- -D warnings
       - name: Tests
-        run: cargo test -p qidir-core -p qidir-cli --all-targets --no-fail-fast
+        run: cargo test -p qidir-core -p qidir-cli -p qidir-server --all-targets --no-fail-fast
       - name: CLI smoke test
         shell: bash
         run: |

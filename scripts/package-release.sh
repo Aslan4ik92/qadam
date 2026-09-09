@@ -51,14 +51,12 @@ QIDIR $VERSION — портативная версия для Windows 10/11 x64
 Требования
 ----------
 * Windows 10 (1809+) или Windows 11, 64-bit.
-* Среда выполнения Microsoft Edge WebView2. В Windows 11 она есть всегда.
-  В Windows 10 обычно установлена вместе с Microsoft Edge; если QIDIR.exe
-  сообщает об отсутствии WebView2, установите её отсюда:
-  https://developer.microsoft.com/microsoft-edge/webview2/#download
-  (Evergreen Bootstrapper, ~2 МБ) — или используйте установщик
-  QIDIR_${VERSION}_x64-setup.exe, который делает это автоматически.
-* Никакие другие компоненты (Java, .NET, Python, Visual C++ Redistributable)
-  не нужны: EXE полностью самодостаточный.
+* Больше ничего: ни .NET, ни Java, ни Visual C++ Redistributable, ни WebView2.
+  Если среда Microsoft Edge WebView2 на компьютере есть (Windows 11 — всегда),
+  QIDIR открывается в собственном окне. Если её нет, QIDIR сам откроет тот же
+  интерфейс во вкладке вашего браузера (встроенный сервер на 127.0.0.1).
+  Принудительно открыть в браузере: QIDIR.exe --browser
+* Копируйте папку целиком: WebView2Loader.dll должен лежать рядом с QIDIR.exe.
 
 Первый запуск и SmartScreen
 ---------------------------
@@ -71,8 +69,9 @@ EXE не подписан сертификатом, поэтому Windows мо�
 1. Правой кнопкой по QIDIR.exe → Свойства → галочка «Разблокировать» → OK
    (Windows блокирует файлы, распакованные из скачанного архива).
    В PowerShell в этой папке: Get-ChildItem | Unblock-File
-2. Установите Microsoft Edge WebView2 Runtime (ссылка выше) — без него
-   окно программы создать невозможно. QIDIR сам покажет об этом сообщение.
+2. Запустите QIDIR.exe --browser — интерфейс откроется в браузере
+   (WebView2 не нужен). Адрес вида http://127.0.0.1:НОМЕР/ виден в консоли:
+   QIDIR.exe --browser --console
 3. Запустите QIDIR.exe --console из PowerShell: откроется консоль с журналом.
    Ошибки также показываются в диалоговом окне и пишутся в
    %LOCALAPPDATA%\QIDIR\logs.

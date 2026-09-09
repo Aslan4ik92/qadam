@@ -83,6 +83,21 @@ enum Cmd {
     },
     /// Show index statistics.
     Stats,
+    /// Serve the graphical interface to a web browser (no WebView2 needed).
+    Serve {
+        /// TCP port on 127.0.0.1 (0 = pick a free one).
+        #[arg(long, default_value_t = 0)]
+        port: u16,
+        /// Do not open the browser automatically.
+        #[arg(long)]
+        no_open: bool,
+        /// Exit after this many minutes without UI activity (0 = never).
+        #[arg(long, default_value_t = 0)]
+        idle_minutes: u64,
+        /// Update the index before serving.
+        #[arg(long)]
+        index: bool,
+    },
     /// Delete every indexed document.
     Clear,
     /// Show the highlighted text of one indexed file.
@@ -270,6 +285,27 @@ fn main() -> Result<()> {
             }
         }
         Cmd::Stats => println!("{}", serde_json::to_string_pretty(&engine.stats()?)?),
+        Cmd::Serve { port, no_open, idle_minutes, index } => {
+            if engine.settings().watch_changes {
+                let _ = engine.start_watching();
+            }
+            if index && !engine.settings().roots.is_empty() {
+                engine.start_indexing(false)?;
+            }
+            let cfg = qidir_server::ServerConfig {
+                port,
+                open_browser: !no_open,
+                idle_timeout: if idle_minutes == 0 {
+                    None
+                } else {
+                    Some(std::time::Duration::from_secs(idle_minutes * 60))
+                },
+            };
+            let paths = engine.paths().clone();
+            let running = qidir_server::serve(engine.clone(), paths, cfg).map_err(|e| anyhow::anyhow!(e))?;
+            println!("QIDIR is available at {}  (Ctrl+C to stop)", running.url);
+            running.wait();
+        }
         Cmd::Clear => {
             engine.clear_index()?;
             println!("index cleared");

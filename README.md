@@ -60,7 +60,7 @@ QIDIR отвечает на вопрос *«в каком файле на моё
 
 ## Установка и запуск на другом компьютере с Windows
 
-Требования: **Windows 10 (версия 1809 и новее) или Windows 11, 64-bit**. Ничего устанавливать дополнительно не нужно (ни .NET, ни Java, ни Visual C++ Redistributable) — EXE самодостаточный. Единственная системная зависимость — среда выполнения **Microsoft Edge WebView2**: в Windows 11 она есть всегда, в Windows 10 обычно установлена вместе с Edge; установщик QIDIR докачивает её автоматически, портативной версии может понадобиться [Evergreen Bootstrapper](https://developer.microsoft.com/microsoft-edge/webview2/#download) (~2 МБ).
+Требования: **Windows 10 (версия 1809 и новее) или Windows 11, 64-bit**. Больше ничего устанавливать и скачивать не нужно: EXE самодостаточный (ни .NET, ни Java, ни Visual C++ Redistributable). Если на компьютере есть среда Microsoft Edge WebView2 (в Windows 11 всегда, в Windows 10 обычно вместе с Edge), QIDIR открывается в собственном окне; если её нет, QIDIR автоматически открывает тот же интерфейс во вкладке вашего браузера (Edge, Chrome, Firefox и т. д.) через встроенный локальный сервер на `127.0.0.1`. Режим браузера можно включить и принудительно: `QIDIR.exe --browser`.
 
 ### Вариант 1 — портативная версия (без установки)
 
@@ -70,7 +70,7 @@ QIDIR отвечает на вопрос *«в каком файле на моё
 |------|---------|
 | `release/QIDIR-portable/QIDIR.exe` | приложение с графическим интерфейсом |
 | `release/QIDIR-portable/qidir.exe` | консольная утилита (тот же движок) |
-| `release/QIDIR-portable/WebView2Loader.dll` | загрузчик WebView2, должен лежать рядом с `QIDIR.exe` |
+| `release/QIDIR-portable/WebView2Loader.dll` | загрузчик WebView2, должен лежать рядом с `QIDIR.exe` (копируйте папку целиком) |
 | `release/QIDIR-1.0.0-windows-x64-portable.zip` | всё вышеперечисленное одним архивом |
 | `release/QIDIR_1.0.0_x64-setup.exe` | установщик NSIS (см. вариант 2) |
 | `release/SHA256SUMS.txt` | контрольные суммы |
@@ -81,7 +81,7 @@ QIDIR отвечает на вопрос *«в каком файле на моё
 2. Распакуйте архив в любую папку, например `C:\QIDIR`. Внутри должны быть `QIDIR.exe`, `qidir.exe`, `WebView2Loader.dll`, `README.txt`.
 3. Дважды щёлкните `QIDIR.exe`. Права администратора не требуются.
 4. При первом запуске Windows SmartScreen может показать «Система Windows защитила ваш компьютер», потому что файл не подписан сертификатом. Нажмите **Подробнее → Выполнить в любом случае**.
-5. Если появится сообщение об отсутствии WebView2 (бывает только на Windows 10 без Edge), установите [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/#download) и запустите `QIDIR.exe` снова.
+5. Если среды WebView2 нет, появится сообщение и интерфейс откроется во вкладке браузера — это нормальный режим работы, ничего доустанавливать не нужно. В строке состояния будет отметка «Режим браузера» и кнопка «Завершить QIDIR».
 6. В открывшемся окне нажмите **Добавить папку…**, выберите папки или диски и дождитесь индексирования (прогресс в строке состояния; искать можно сразу).
 
 Проверка целостности (PowerShell):
@@ -104,7 +104,7 @@ Get-FileHash .\QIDIR-portable\QIDIR.exe -Algorithm SHA256
 ### Если `QIDIR.exe` не запускается
 
 1. **Разблокируйте файлы.** Windows помечает скачанные из интернета архивы; после распаковки Проводником метка остаётся на каждом файле, и запуск может блокироваться без сообщения. Правой кнопкой по `QIDIR.exe` → **Свойства** → внизу вкладки «Общие» поставьте галочку **Разблокировать** → OK (то же для `qidir.exe`). Или в PowerShell в папке программы: `Get-ChildItem | Unblock-File`. Если появляется окно SmartScreen — **Подробнее → Выполнить в любом случае**.
-2. **Установите WebView2.** На Windows 10 без Microsoft Edge окно создать невозможно. Скачайте [Evergreen Bootstrapper](https://developer.microsoft.com/microsoft-edge/webview2/#download) и установите. Начиная с версии 1.0.0 (сборка от 9 сентября) QIDIR сам показывает это сообщение и открывает страницу загрузки.
+2. **Нет WebView2 — не проблема.** Если среды Microsoft Edge WebView2 нет, QIDIR сам откроет интерфейс в браузере. Принудительно: `QIDIR.exe --browser`. Если браузер не открылся, посмотрите адрес в консоли (`QIDIR.exe --browser --console`) и откройте его вручную.
 3. **Посмотрите причину.** Запустите из PowerShell `.\QIDIR.exe --console` — откроется консоль с журналом запуска. Любая ошибка теперь также показывается в диалоговом окне и пишется в `%LOCALAPPDATA%\QIDIR\logs\qidir.log.<дата>`.
 4. **Антивирус.** Неподписанные исполняемые файлы иногда помещаются в карантин; проверьте журнал защитника и добавьте папку в исключения.
 5. **Сломанный индекс.** Если в логе ошибка открытия индекса, удалите `%LOCALAPPDATA%\QIDIR\index` и `manifest.redb` — индекс будет построен заново.
@@ -157,6 +157,7 @@ qidir preview D:\Документы\договор.docx аренда
 qidir extract old-report.doc      # что именно видит индексатор в файле
 qidir analyze "Кітаптарымызда Қазақстан тарихы"   # токены и стемы
 qidir stats
+qidir serve --port 8765           # интерфейс в браузере: http://127.0.0.1:8765/
 ```
 
 Данные по умолчанию — в `%LOCALAPPDATA%\QIDIR`; другое место задаётся `--data-dir` или переменной `QIDIR_DATA_DIR`. Приложение и утилита не должны работать с одним индексом одновременно.
@@ -180,6 +181,7 @@ npm run tauri build                                # установщики в t
 ```text
 crates/qidir-core     ядро: анализ текста RU/KZ/EN, экстракторы форматов, индекс tantivy, поиск
 crates/qidir-cli      консольная утилита qidir
+crates/qidir-server   встроенный локальный сервер: интерфейс в браузере без WebView2
 apps/desktop          приложение Tauri 2: src (Svelte 5 + TypeScript), src-tauri (Rust-бэкенд)
 docs                  архитектура, синтаксис запросов, сборка
 .github/workflows     CI (тесты, сборка установщиков) и публикация релизов
@@ -203,6 +205,6 @@ docs                  архитектура, синтаксис запросо�
 - Facets and filters, highlighted snippets and previews, open / reveal in Explorer / open with / copy path.
 - Everything stays on your machine.
 
-**Run it on Windows:** unzip `release/QIDIR-1.0.0-windows-x64-portable.zip` anywhere and start `QIDIR.exe` (Windows 10 1809+/11 x64, WebView2 runtime; no install, no admin rights). Installers (NSIS/MSI) are produced by CI on Windows — see Actions artifacts or Releases.
+**Run it on Windows:** unzip `release/QIDIR-1.0.0-windows-x64-portable.zip` anywhere and start `QIDIR.exe` (Windows 10 1809+/11 x64; no install, no admin rights, nothing to download — without the WebView2 runtime the same UI opens in your default browser via an embedded local server; `QIDIR.exe --browser` forces that mode). Installers (NSIS/MSI) are produced by CI on Windows — see Actions artifacts or Releases.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/SEARCH_SYNTAX.md](docs/SEARCH_SYNTAX.md) and [docs/BUILD.md](docs/BUILD.md).

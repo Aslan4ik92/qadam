@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/qidir-core",
     "crates/qidir-cli",
+    "crates/qidir-server",
     "apps/desktop/src-tauri",
 ]
 
@@ -16,6 +17,7 @@ authors = ["QIDIR contributors"]
 
 [workspace.dependencies]
 qidir-core = { path = "crates/qidir-core" }
+qidir-server = { path = "crates/qidir-server" }
 
 anyhow = "1.0"
 thiserror = "2.0"
