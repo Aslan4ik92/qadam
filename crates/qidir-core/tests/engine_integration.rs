@@ -151,6 +151,28 @@ fn full_cycle() {
     // --- Structured filters + facets ---
     let r = e.search(&SearchRequest { categories: vec![FileCategory::Document], ..req("") }).unwrap();
     assert_eq!(r.total, 1);
+    // Multi-select facets: with "document" ticked, the other types are still
+    // offered with their counts, so a second type can be added...
+    let txt = r.facets.categories.iter().find(|f| f.value == "text").expect("text facet still visible");
+    assert_eq!(txt.count, 5); // 4 × .txt + report.md
+    assert!(r.facets.categories.iter().any(|f| f.value == "document" && f.count == 1));
+    // ...while extension counts are narrowed by the category filter.
+    assert!(r.facets.extensions.iter().all(|f| f.value == "docx"));
+    let r = e
+        .search(&SearchRequest { categories: vec![FileCategory::Document, FileCategory::Text], ..req("") })
+        .unwrap();
+    assert_eq!(r.total, 6);
+    let r = e
+        .search(&SearchRequest {
+            categories: vec![FileCategory::Document, FileCategory::Text],
+            ..req("договор")
+        })
+        .unwrap();
+    assert_eq!(r.total, 2);
+    // Extension facet stays multi-selectable too.
+    let r = e.search(&SearchRequest { extensions: vec!["txt".into()], ..req("") }).unwrap();
+    assert!(r.facets.extensions.iter().any(|f| f.value == "md"));
+    assert!(r.facets.categories.iter().all(|f| f.value == "text"));
     let r = e.search(&SearchRequest { extensions: vec!["txt".into()], ..req("") }).unwrap();
     assert_eq!(r.total, 4);
     let r = e.search(&req("")).unwrap();

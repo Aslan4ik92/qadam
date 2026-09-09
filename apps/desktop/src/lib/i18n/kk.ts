@@ -76,6 +76,7 @@ export const kk: Dictionary = {
   'sidebar.locations': 'Орналасулар',
   'sidebar.addFolder': 'Қалта қосу…',
   'sidebar.fileType': 'Файл түрі',
+  'sidebar.multiSelectHint': 'Бірнеше түрді таңдауға болады',
   'sidebar.extensions': 'Кеңейтімдер',
   'sidebar.modified': 'Өзгертілген',
   'sidebar.modified.any': 'Барлық уақытта',

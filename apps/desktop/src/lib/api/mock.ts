@@ -248,23 +248,24 @@ export function mockSearch(docs: MockDoc[], request: SearchRequest): SearchRespo
   const terms = queryTerms(request.query, request.mode);
   const res = matchers(terms, request.mode);
   let matched = docs.filter((doc) => docMatches(doc, terms, request.mode));
-  if (request.roots.length) matched = matched.filter((doc) => request.roots.some((r) => doc.path.startsWith(r)));
   if (request.withContentOnly) matched = matched.filter((doc) => !!doc.content);
   if (request.sizeMin != null) matched = matched.filter((doc) => doc.size >= request.sizeMin!);
   if (request.sizeMax != null) matched = matched.filter((doc) => doc.size <= request.sizeMax!);
   if (request.modifiedFrom != null) matched = matched.filter((doc) => doc.modified >= request.modifiedFrom!);
   if (request.modifiedTo != null) matched = matched.filter((doc) => doc.modified <= request.modifiedTo!);
 
-  // Facets are computed before category/extension narrowing so users can still see the other options.
+  // Multi-select ("disjunctive") facets, like the real backend: each dimension is
+  // counted without its own filter so the other options stay selectable.
   const allHits = matched.map((doc) => toHit(doc, res, request.snippetChars || 160));
+  const byRoot = (h: SearchHit) => !request.roots.length || request.roots.some((r) => h.path.startsWith(r));
+  const byCat = (h: SearchHit) => !request.categories.length || request.categories.includes(h.category);
+  const byExt = (h: SearchHit) => !request.extensions.length || request.extensions.includes(h.ext);
   const facets = {
-    categories: facetOf(allHits.map((h) => h.category)),
-    extensions: facetOf(allHits.map((h) => h.ext)),
-    roots: facetOf(allHits.map((h) => h.root))
+    roots: facetOf(allHits.filter((h) => byCat(h) && byExt(h)).map((h) => h.root)),
+    categories: facetOf(allHits.filter((h) => byRoot(h) && byExt(h)).map((h) => h.category)),
+    extensions: facetOf(allHits.filter((h) => byRoot(h) && byCat(h)).map((h) => h.ext))
   };
-  let hits = allHits;
-  if (request.categories.length) hits = hits.filter((h) => request.categories.includes(h.category));
-  if (request.extensions.length) hits = hits.filter((h) => request.extensions.includes(h.ext));
+  let hits = allHits.filter((h) => byRoot(h) && byCat(h) && byExt(h));
   hits = sortHits(hits, request.sort);
   const total = hits.length;
   const page = hits.slice(request.offset, request.offset + request.limit);

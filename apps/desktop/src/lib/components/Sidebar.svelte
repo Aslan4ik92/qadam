@@ -59,6 +59,8 @@
       <h3 class="section-title">{t('sidebar.fileType')}</h3>
       {#if categories.length === 0}
         <div class="faint small">{t('sidebar.noFacets')}</div>
+      {:else if categories.length > 1}
+        <div class="faint small hint">{t('sidebar.multiSelectHint')}</div>
       {/if}
       {#each categories as c (c.id)}
         <Checkbox checked={f.categories.includes(c.id)} count={fmt(c.count)}
@@ -146,4 +148,5 @@
   .range { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 6px 6px 0; }
   .range label { display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-xs); min-width: 0; }
   .range .input { width: 100%; min-width: 0; padding: 0 6px; }
+  .hint { margin: -2px 0 4px; }
 </style>

@@ -75,6 +75,7 @@ export const ru = {
   'sidebar.locations': 'Расположения',
   'sidebar.addFolder': 'Добавить папку…',
   'sidebar.fileType': 'Тип файла',
+  'sidebar.multiSelectHint': 'Можно отметить несколько типов',
   'sidebar.extensions': 'Расширения',
   'sidebar.modified': 'Изменён',
   'sidebar.modified.any': 'За всё время',

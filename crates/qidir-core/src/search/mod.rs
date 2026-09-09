@@ -139,19 +139,19 @@ pub fn search(searcher: &Searcher, fields: &Fields, req: &SearchRequest) -> Resu
     let text_query = builder.build(&parsed)?;
     let matcher = builder.matcher(&parsed);
 
-    let mut clauses: Vec<(Occur, Box<dyn Query>)> = Vec::new();
-    match text_query {
-        Some(q) => clauses.push((Occur::Must, q)),
-        None => clauses.push((Occur::Must, Box::new(AllQuery))),
-    }
-    add_filters(fields, req, &mut clauses);
-    let query: Box<dyn Query> =
-        if clauses.len() == 1 { clauses.pop().unwrap().1 } else { Box::new(BooleanQuery::new(clauses)) };
+    let text_clause: Box<dyn Query> = match text_query {
+        Some(q) => q,
+        None => Box::new(AllQuery),
+    };
+    let dims = dimension_filters(fields, req);
+
+    // Full query: text + every filter.
+    let query = compose(text_clause.as_ref(), &dims, DimMask::ALL);
 
     let facet_collector = FacetCollector { fields: *fields };
     let addresses: Vec<(Score, DocAddress)>;
     let total: u64;
-    let facets: Facets;
+    let mut facets: Facets;
 
     let effective_sort = if parsed.is_empty() && req.sort == SortOrder::Relevance {
         SortOrder::ModifiedDesc
@@ -212,6 +212,34 @@ pub fn search(searcher: &Searcher, fields: &Fields, req: &SearchRequest) -> Resu
         }
     }
 
+    // Multi-select ("disjunctive") facets: the counts of a dimension are
+    // computed without that dimension's own filter, so after ticking
+    // "Documents" the user still sees "Spreadsheets (12)" and can add it.
+    if dims.roots.is_some() {
+        let q = compose(
+            text_clause.as_ref(),
+            &dims,
+            DimMask { roots: false, categories: true, extensions: true },
+        );
+        facets.roots = searcher.search(&q, &FacetCollector { fields: *fields })?.roots;
+    }
+    if dims.categories.is_some() {
+        let q = compose(
+            text_clause.as_ref(),
+            &dims,
+            DimMask { roots: true, categories: false, extensions: true },
+        );
+        facets.categories = searcher.search(&q, &FacetCollector { fields: *fields })?.categories;
+    }
+    if dims.extensions.is_some() {
+        let q = compose(
+            text_clause.as_ref(),
+            &dims,
+            DimMask { roots: true, categories: true, extensions: false },
+        );
+        facets.extensions = searcher.search(&q, &FacetCollector { fields: *fields })?.extensions;
+    }
+
     let mut hits = Vec::with_capacity(addresses.len());
     for (score, addr) in addresses {
         let doc: TantivyDocument = searcher.doc(addr)?;
@@ -229,57 +257,94 @@ pub fn search(searcher: &Searcher, fields: &Fields, req: &SearchRequest) -> Resu
     })
 }
 
-fn add_filters(fields: &Fields, req: &SearchRequest, clauses: &mut Vec<(Occur, Box<dyn Query>)>) {
-    if !req.roots.is_empty() {
-        let alts: Vec<(Occur, Box<dyn Query>)> = req
-            .roots
-            .iter()
-            .map(|r| {
-                let q: Box<dyn Query> =
-                    Box::new(TermQuery::new(Term::from_field_text(fields.root, r), IndexRecordOption::Basic));
-                (Occur::Should, q)
-            })
-            .collect();
-        clauses.push((Occur::Must, Box::new(BooleanQuery::new(alts))));
+/// Filters split by facet dimension so facets can be computed disjunctively.
+struct DimFilters {
+    roots: Option<Box<dyn Query>>,
+    categories: Option<Box<dyn Query>>,
+    extensions: Option<Box<dyn Query>>,
+    /// Filters that are not facet dimensions (size, date, has-content).
+    other: Vec<Box<dyn Query>>,
+}
+
+/// Which dimension filters to include when composing a query.
+#[derive(Clone, Copy)]
+struct DimMask {
+    roots: bool,
+    categories: bool,
+    extensions: bool,
+}
+
+impl DimMask {
+    const ALL: DimMask = DimMask { roots: true, categories: true, extensions: true };
+}
+
+fn any_of(fields_terms: Vec<Term>) -> Option<Box<dyn Query>> {
+    if fields_terms.is_empty() {
+        return None;
     }
-    if !req.categories.is_empty() {
-        let alts: Vec<(Occur, Box<dyn Query>)> = req
-            .categories
+    let alts: Vec<(Occur, Box<dyn Query>)> = fields_terms
+        .into_iter()
+        .map(|t| {
+            let q: Box<dyn Query> = Box::new(TermQuery::new(t, IndexRecordOption::Basic));
+            (Occur::Should, q)
+        })
+        .collect();
+    Some(Box::new(BooleanQuery::new(alts)))
+}
+
+fn dimension_filters(fields: &Fields, req: &SearchRequest) -> DimFilters {
+    let roots = any_of(req.roots.iter().map(|r| Term::from_field_text(fields.root, r)).collect());
+    let categories =
+        any_of(req.categories.iter().map(|c| Term::from_field_text(fields.category, c.as_str())).collect());
+    let extensions = any_of(
+        req.extensions
             .iter()
-            .map(|c| {
-                let q: Box<dyn Query> = Box::new(TermQuery::new(
-                    Term::from_field_text(fields.category, c.as_str()),
-                    IndexRecordOption::Basic,
-                ));
-                (Occur::Should, q)
-            })
-            .collect();
-        clauses.push((Occur::Must, Box::new(BooleanQuery::new(alts))));
-    }
-    if !req.extensions.is_empty() {
-        let alts: Vec<(Occur, Box<dyn Query>)> = req
-            .extensions
-            .iter()
-            .map(|e| {
-                let e = e.trim().trim_start_matches('.').to_lowercase();
-                let q: Box<dyn Query> =
-                    Box::new(TermQuery::new(Term::from_field_text(fields.ext, &e), IndexRecordOption::Basic));
-                (Occur::Should, q)
-            })
-            .collect();
-        clauses.push((Occur::Must, Box::new(BooleanQuery::new(alts))));
-    }
+            .map(|e| e.trim().trim_start_matches('.').to_lowercase())
+            .filter(|e| !e.is_empty())
+            .map(|e| Term::from_field_text(fields.ext, &e))
+            .collect(),
+    );
+    let mut other: Vec<Box<dyn Query>> = Vec::new();
     if req.with_content_only {
-        clauses.push((
-            Occur::Must,
-            Box::new(TermQuery::new(Term::from_field_u64(fields.has_content, 1), IndexRecordOption::Basic)),
-        ));
+        other.push(Box::new(TermQuery::new(
+            Term::from_field_u64(fields.has_content, 1),
+            IndexRecordOption::Basic,
+        )));
     }
     if req.size_min.is_some() || req.size_max.is_some() {
-        clauses.push((Occur::Must, query::u64_range(fields.size, req.size_min, req.size_max)));
+        other.push(query::u64_range(fields.size, req.size_min, req.size_max));
     }
     if req.modified_from.is_some() || req.modified_to.is_some() {
-        clauses.push((Occur::Must, query::i64_range(fields.modified, req.modified_from, req.modified_to)));
+        other.push(query::i64_range(fields.modified, req.modified_from, req.modified_to));
+    }
+    DimFilters { roots, categories, extensions, other }
+}
+
+/// Combine the text query with the selected filters into one `Must` query.
+fn compose(text: &dyn Query, dims: &DimFilters, mask: DimMask) -> Box<dyn Query> {
+    let mut clauses: Vec<(Occur, Box<dyn Query>)> = vec![(Occur::Must, text.box_clone())];
+    if mask.roots {
+        if let Some(q) = &dims.roots {
+            clauses.push((Occur::Must, q.box_clone()));
+        }
+    }
+    if mask.categories {
+        if let Some(q) = &dims.categories {
+            clauses.push((Occur::Must, q.box_clone()));
+        }
+    }
+    if mask.extensions {
+        if let Some(q) = &dims.extensions {
+            clauses.push((Occur::Must, q.box_clone()));
+        }
+    }
+    for q in &dims.other {
+        clauses.push((Occur::Must, q.box_clone()));
+    }
+    if clauses.len() == 1 {
+        clauses.pop().unwrap().1
+    } else {
+        Box::new(BooleanQuery::new(clauses))
     }
 }
 

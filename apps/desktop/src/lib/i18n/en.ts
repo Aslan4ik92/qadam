@@ -76,6 +76,7 @@ export const en: Dictionary = {
   'sidebar.locations': 'Locations',
   'sidebar.addFolder': 'Add folder…',
   'sidebar.fileType': 'File type',
+  'sidebar.multiSelectHint': 'Tick several types to combine them',
   'sidebar.extensions': 'Extensions',
   'sidebar.modified': 'Modified',
   'sidebar.modified.any': 'Any time',
