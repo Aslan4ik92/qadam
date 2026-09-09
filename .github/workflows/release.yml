@@ -47,3 +47,18 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: --ci
+      - name: Portable build
+        shell: pwsh
+        run: |
+          cargo build --release -p qidir-cli
+          $v = (Select-String -Path Cargo.toml -Pattern '^version = "([^"]+)"').Matches[0].Groups[1].Value
+          New-Item -ItemType Directory -Force -Path portable/QIDIR-portable | Out-Null
+          Copy-Item target/release/qidir-desktop.exe portable/QIDIR-portable/QIDIR.exe
+          Copy-Item target/release/qidir.exe portable/QIDIR-portable/qidir.exe
+          Copy-Item LICENSE portable/QIDIR-portable/LICENSE.txt
+          Copy-Item docs/SEARCH_SYNTAX.md portable/QIDIR-portable/SYNTAX.md
+          Copy-Item release/QIDIR-portable/README.txt portable/QIDIR-portable/README.txt
+          Compress-Archive -Path portable/QIDIR-portable -DestinationPath "QIDIR-$v-windows-x64-portable.zip" -Force
+          gh release upload "${{ github.ref_name }}" "QIDIR-$v-windows-x64-portable.zip" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

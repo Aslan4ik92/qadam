@@ -58,16 +58,55 @@ QIDIR отвечает на вопрос *«в каком файле на моё
 - Интерфейс на русском, казахском и английском.
 - Устанавливается для текущего пользователя (NSIS) или через MSI; не требует прав администратора.
 
-## Установка
+## Установка и запуск на другом компьютере с Windows
 
-Готовые установщики для Windows 10/11 x64 публикуются в разделе [Releases](../../releases):
+Требования: **Windows 10 (версия 1809 и новее) или Windows 11, 64-bit**. Ничего устанавливать дополнительно не нужно (ни .NET, ни Java, ни Visual C++ Redistributable) — EXE самодостаточный. Единственная системная зависимость — среда выполнения **Microsoft Edge WebView2**: в Windows 11 она есть всегда, в Windows 10 обычно установлена вместе с Edge; установщик QIDIR докачивает её автоматически, портативной версии может понадобиться [Evergreen Bootstrapper](https://developer.microsoft.com/microsoft-edge/webview2/#download) (~2 МБ).
 
-| Файл | Назначение |
-|------|------------|
-| `QIDIR_x.y.z_x64-setup.exe` | Установка для текущего пользователя (рекомендуется) |
-| `QIDIR_x.y.z_x64_ru-RU.msi` | MSI для развёртывания в организации |
+### Вариант 1 — портативная версия (без установки)
 
-Требуется среда выполнения WebView2 (в Windows 11 есть из коробки; в Windows 10 установщик докачает её автоматически).
+Готовые файлы лежат в папке [`release/`](release/) этого репозитория:
+
+| Файл | Что это |
+|------|---------|
+| `release/QIDIR-portable/QIDIR.exe` | приложение с графическим интерфейсом |
+| `release/QIDIR-portable/qidir.exe` | консольная утилита (тот же движок) |
+| `release/QIDIR-portable/WebView2Loader.dll` | загрузчик WebView2, должен лежать рядом с `QIDIR.exe` |
+| `release/QIDIR-1.0.0-windows-x64-portable.zip` | всё вышеперечисленное одним архивом |
+| `release/SHA256SUMS.txt` | контрольные суммы |
+
+Пошагово:
+
+1. Скопируйте на целевой компьютер `QIDIR-1.0.0-windows-x64-portable.zip` (или всю папку `QIDIR-portable`). Скачать одним файлом можно так: откройте архив на GitHub и нажмите **Download raw file** (кнопка со стрелкой), либо `git clone` репозитория.
+2. Распакуйте архив в любую папку, например `C:\QIDIR`. Внутри должны быть `QIDIR.exe`, `qidir.exe`, `WebView2Loader.dll`, `README.txt`.
+3. Дважды щёлкните `QIDIR.exe`. Права администратора не требуются.
+4. При первом запуске Windows SmartScreen может показать «Система Windows защитила ваш компьютер», потому что файл не подписан сертификатом. Нажмите **Подробнее → Выполнить в любом случае**.
+5. Если появится сообщение об отсутствии WebView2 (бывает только на Windows 10 без Edge), установите [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/#download) и запустите `QIDIR.exe` снова.
+6. В открывшемся окне нажмите **Добавить папку…**, выберите папки или диски и дождитесь индексирования (прогресс в строке состояния; искать можно сразу).
+
+Проверка целостности (PowerShell):
+
+```powershell
+Get-FileHash .\QIDIR-portable\QIDIR.exe -Algorithm SHA256
+# сравните с release\SHA256SUMS.txt
+```
+
+Консольная утилита из той же папки:
+
+```powershell
+.\qidir.exe add-root D:\Документы
+.\qidir.exe index
+.\qidir.exe search "договор аренды"
+```
+
+Индекс и настройки хранятся в `%LOCALAPPDATA%\QIDIR`. Чтобы удалить программу, удалите папку с `QIDIR.exe` и, при желании, `%LOCALAPPDATA%\QIDIR`.
+
+### Вариант 2 — установщик
+
+`QIDIR_1.0.0_x64-setup.exe` (NSIS, установка для текущего пользователя, ярлыки в меню «Пуск», автоматическая установка WebView2) и `QIDIR_1.0.0_x64_ru-RU.msi` (для развёртывания в организации) собираются в GitHub Actions на Windows: откройте вкладку **Actions → CI → последний успешный запуск → Artifacts** и скачайте `QIDIR-windows-installers` или `QIDIR-windows-portable`. Для тегов `v*` те же файлы публикуются в разделе **Releases**.
+
+### Как собраны файлы в `release/`
+
+Бинарники в `release/` кросс-скомпилированы из этого коммита под `x86_64-pc-windows-gnu` (mingw-w64, статическая линковка CRT: `.cargo/config.toml`) и проверены запуском под Wine (консольная утилита — индексирование, поиск на трёх языках, предпросмотр; графическое приложение — старт, инициализация движка). Артефакты CI собираются на `windows-latest` компилятором MSVC — это «официальная» сборка, если есть выбор, используйте её. Пересобрать папку `release/` самостоятельно: `scripts/package-release.sh`.
 
 ## Быстрый старт
 
@@ -149,5 +188,7 @@ docs                  архитектура, синтаксис запросо�
 - Incremental, parallel, cancellable indexing with a filesystem watcher; legacy encodings (cp1251, KOI8-R, CP866, BOM-less UTF-16) detected automatically.
 - Facets and filters, highlighted snippets and previews, open / reveal in Explorer / open with / copy path.
 - Everything stays on your machine.
+
+**Run it on Windows:** unzip `release/QIDIR-1.0.0-windows-x64-portable.zip` anywhere and start `QIDIR.exe` (Windows 10 1809+/11 x64, WebView2 runtime; no install, no admin rights). Installers (NSIS/MSI) are produced by CI on Windows — see Actions artifacts or Releases.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/SEARCH_SYNTAX.md](docs/SEARCH_SYNTAX.md) and [docs/BUILD.md](docs/BUILD.md).

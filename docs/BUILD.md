@@ -45,6 +45,30 @@ target/release/qidir-desktop.exe
 
 `npm run dev` открывает интерфейс в браузере с мок-бэкендом (реалистичные данные на трёх языках, имитация индексации). Параметры URL: `?theme=dark`, `?lang=kk`, `?empty=1` (первый запуск). `npm run screenshots` делает скриншоты основных экранов в headless Chromium.
 
+## Кросс-компиляция Windows x64 EXE на Linux
+
+Так собраны файлы в `release/`. Нужны mingw-w64 и цель `x86_64-pc-windows-gnu`; настройки линковщика и статического CRT уже лежат в `.cargo/config.toml`.
+
+```bash
+sudo apt-get install -y gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 nsis
+rustup target add x86_64-pc-windows-gnu
+export CARGO_TARGET_DIR=$PWD/target-win
+
+# консольная утилита
+cargo build --release -p qidir-cli --target x86_64-pc-windows-gnu
+# приложение (фронтенд должен быть собран: cd apps/desktop && npm ci && npm run build)
+cargo build --release -p qidir-desktop --target x86_64-pc-windows-gnu --features tauri/custom-protocol
+# установщик NSIS (экспериментально)
+cd apps/desktop && npm run tauri -- build --target x86_64-pc-windows-gnu --bundles nsis
+
+# папка release/ с портативной версией, ZIP и контрольными суммами
+scripts/package-release.sh
+```
+
+Особенности GNU-сборки: `WebView2Loader.dll` линкуется динамически и должен лежать рядом с `QIDIR.exe` (MSVC-сборка встраивает загрузчик статически). Проверить бинарники без Windows можно под Wine (`wine qidir.exe --help`; для кириллицы в аргументах нужна UTF-8-локаль: `LANG=C.UTF-8`). Графическое окно под Wine не поднимается — WebView2 там недоступен.
+
+Сборка под `x86_64-pc-windows-msvc` с Linux возможна через `cargo-xwin`, но требует загрузки MSVC CRT и Windows SDK с серверов Microsoft.
+
 ## Проверка сборки Windows без Windows
 
 Крейт приложения можно проверить типами под целевую платформу:

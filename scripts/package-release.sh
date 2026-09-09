@@ -23,6 +23,10 @@ rm -rf "$OUT"
 mkdir -p "$OUT/QIDIR-portable"
 cp "$BIN_DIR/qidir-desktop.exe" "$OUT/QIDIR-portable/QIDIR.exe"
 cp "$BIN_DIR/qidir.exe"         "$OUT/QIDIR-portable/qidir.exe"
+# The GNU (mingw) build links WebView2Loader dynamically; MSVC builds embed it.
+if [ -f "$BIN_DIR/WebView2Loader.dll" ]; then
+  cp "$BIN_DIR/WebView2Loader.dll" "$OUT/QIDIR-portable/WebView2Loader.dll"
+fi
 cp "$ROOT/LICENSE"              "$OUT/QIDIR-portable/LICENSE.txt"
 cp "$ROOT/docs/SEARCH_SYNTAX.md" "$OUT/QIDIR-portable/SYNTAX.md"
 
@@ -38,7 +42,8 @@ QIDIR $VERSION — портативная версия для Windows 10/11 x64
 
 Запуск
 ------
-1. Распакуйте папку QIDIR-portable в любое место (например, C:\QIDIR).
+1. Распакуйте папку QIDIR-portable целиком в любое место (например, C:\QIDIR).
+   Файлы QIDIR.exe и WebView2Loader.dll должны лежать рядом.
 2. Запустите QIDIR.exe. Установка не требуется, прав администратора не нужно.
 3. При первом запуске нажмите «Добавить папку…» и выберите папки или диски
    для индексирования. Поиск доступен уже во время индексирования.
@@ -85,7 +90,7 @@ TXT
   cd "$OUT"
   rm -f "QIDIR-${VERSION}-windows-x64-portable.zip"
   zip -q -r "QIDIR-${VERSION}-windows-x64-portable.zip" QIDIR-portable
-  sha256sum QIDIR-portable/*.exe *.zip *.exe *.msi 2>/dev/null > SHA256SUMS.txt || true
+  sha256sum QIDIR-portable/*.exe QIDIR-portable/*.dll *.zip *.exe *.msi 2>/dev/null > SHA256SUMS.txt || true
 )
 echo "release folder ready:"
 ls -la "$OUT" "$OUT/QIDIR-portable"

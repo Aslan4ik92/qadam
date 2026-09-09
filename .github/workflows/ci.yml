@@ -86,16 +86,28 @@ jobs:
       - name: Build QIDIR (tauri build)
         working-directory: apps/desktop
         run: npm run tauri -- build --ci
-      - name: Collect installers
+      - name: Build command line tool
+        run: cargo build --release -p qidir-cli
+      - name: Collect installers and portable build
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path installers | Out-Null
+          New-Item -ItemType Directory -Force -Path installers, portable/QIDIR-portable | Out-Null
           Get-ChildItem -Recurse target/release/bundle -Include *.exe,*.msi | Copy-Item -Destination installers
-          Get-ChildItem installers
+          Copy-Item target/release/qidir-desktop.exe portable/QIDIR-portable/QIDIR.exe
+          Copy-Item target/release/qidir.exe portable/QIDIR-portable/qidir.exe
+          Copy-Item LICENSE portable/QIDIR-portable/LICENSE.txt
+          Copy-Item docs/SEARCH_SYNTAX.md portable/QIDIR-portable/SYNTAX.md
+          Copy-Item release/QIDIR-portable/README.txt portable/QIDIR-portable/README.txt
+          Get-ChildItem installers, portable/QIDIR-portable
       - uses: actions/upload-artifact@v4
         with:
           name: QIDIR-windows-installers
           path: installers/*
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QIDIR-windows-portable
+          path: portable/*
           retention-days: 14
 
   desktop-linux-check:
