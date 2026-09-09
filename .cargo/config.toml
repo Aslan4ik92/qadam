@@ -1,0 +1,14 @@
+# Cross-compilation settings for Windows x64 targets.
+#
+# `+crt-static` links the C runtime statically so the resulting EXE has no
+# dependency on vcruntime/msvcp DLLs (the WebView2 runtime is still required
+# by the desktop app — it ships with Windows 11 and the installer downloads
+# it on Windows 10).
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.x86_64-pc-windows-gnu]
+linker = "x86_64-w64-mingw32-gcc"
+ar = "x86_64-w64-mingw32-ar"
+rustflags = ["-C", "target-feature=+crt-static"]
