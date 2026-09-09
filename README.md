@@ -72,6 +72,7 @@ QIDIR отвечает на вопрос *«в каком файле на моё
 | `release/QIDIR-portable/qidir.exe` | консольная утилита (тот же движок) |
 | `release/QIDIR-portable/WebView2Loader.dll` | загрузчик WebView2, должен лежать рядом с `QIDIR.exe` |
 | `release/QIDIR-1.0.0-windows-x64-portable.zip` | всё вышеперечисленное одним архивом |
+| `release/QIDIR_1.0.0_x64-setup.exe` | установщик NSIS (см. вариант 2) |
 | `release/SHA256SUMS.txt` | контрольные суммы |
 
 Пошагово:
@@ -102,7 +103,11 @@ Get-FileHash .\QIDIR-portable\QIDIR.exe -Algorithm SHA256
 
 ### Вариант 2 — установщик
 
-`QIDIR_1.0.0_x64-setup.exe` (NSIS, установка для текущего пользователя, ярлыки в меню «Пуск», автоматическая установка WebView2) и `QIDIR_1.0.0_x64_ru-RU.msi` (для развёртывания в организации) собираются в GitHub Actions на Windows: откройте вкладку **Actions → CI → последний успешный запуск → Artifacts** и скачайте `QIDIR-windows-installers` или `QIDIR-windows-portable`. Для тегов `v*` те же файлы публикуются в разделе **Releases**.
+1. Скопируйте на компьютер `release/QIDIR_1.0.0_x64-setup.exe` и запустите его (двойной щелчок; для тихой установки — `QIDIR_1.0.0_x64-setup.exe /S`).
+2. Установщик NSIS ставит программу для текущего пользователя (без прав администратора) в `%LOCALAPPDATA%\QIDIR`, создаёт ярлыки в меню «Пуск» и на рабочем столе, при необходимости скачивает и устанавливает WebView2.
+3. Запустите QIDIR из меню «Пуск». Удаление — через «Параметры → Приложения» или `uninstall.exe` в папке установки.
+
+MSI-пакет `QIDIR_1.0.0_x64_ru-RU.msi` (для развёртывания в организации) и MSVC-сборки установщиков собираются в GitHub Actions на Windows: откройте **Actions → CI → последний успешный запуск → Artifacts** и скачайте `QIDIR-windows-installers` или `QIDIR-windows-portable`. Для тегов `v*` те же файлы публикуются в разделе **Releases**.
 
 ### Как собраны файлы в `release/`
 
